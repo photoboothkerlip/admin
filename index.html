@@ -507,6 +507,71 @@ function buildQuotationPDF(q){
 
   return doc;
 }
+
+function buildBookingSummaryPDF(b){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'BKG-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  docHeader(doc,'Booking Summary',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Client & Event Details',y);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2}, margin:{left:16,right:16},
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}},
+    body:[
+      ['Client Name', b.namaClient||'—','Booking Status', b.bookingStatus],
+      ['Client Phone', b.noHpClient||'—','Payment Status', b.paymentStatus],
+      ['Event Date', displayDate(b.tarikhEvent),'Event Type', b.jenisEvent||'—'],
+      ['Event Time', b.waktuEvent||'TBC','Event Location', b.lokasiEvent||'—'],
+      ['Contact Person', b.namaCP||'—','Contact Person Phone', b.noHpCP||'—'],
+    ]});
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Package Details',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Item','Detail']],
+    body:[['Package', b.pakej||'—'],['Backdrop', b.backdrop||'—'],['Add-On', b.pakejTambahan||'N/A'],
+      ['Transportation Charges', rm(b.transportCharges)]],
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Payment Summary',y);
+  const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
+    body:[['Total Amount', rmVal(b.jumlahKeseluruhan)],['Deposit Paid', rmVal(b.bayaranDeposit)],
+      ['Balance Due', rmVal(bal)]],
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},1:{halign:'right',fontStyle:'bold'}}});
+  y = doc.lastAutoTable.finalY + 10;
+  y = termsBlock(doc,y);
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildInvoicePDF(b){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'INV-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  docHeader(doc,'Invoice',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Bill To',y);
+  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)],['Location',b.lokasiEvent]],16,y,90);
+  y += 2;
+  y = docSectionTitle(doc,'Charges',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Description','Amount (RM)']],
+    body:[[b.pakej||'Photobooth Package', num(b.jumlahKeseluruhan-num(b.transportCharges)).toFixed(2)],
+      ['Transportation Charges', num(b.transportCharges).toFixed(2)]],
+    foot:[['Total Due', num(b.jumlahKeseluruhan).toFixed(2)]],
+    footStyles:{fillColor:[239,228,196],textColor:[28,24,21],fontStyle:'bold'},
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  doc.setFontSize(9);
+  doc.text('Deposit Paid: '+rmVal(b.bayaranDeposit),16,y); y+=5;
+  doc.setFont('helvetica','bold');
+  doc.text('Balance Due: '+rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)),16,y); doc.setFont('helvetica','normal');
+  y += 10;
+  y = termsBlock(doc,y);
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
 }
 
 function buildReceiptPDF(b){
