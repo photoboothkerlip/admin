@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kerlip Photobooth — Admin Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --ink:#1C1815; --paper:#FFFDF9; --surface:#F7F3EA; --surfaceAlt:#FBF8F2;
+  --line:#E7DFCC; --gold:#B08A3E; --goldDeep:#8C6C2E; --goldSoft:#EFE4C4;
+  --success:#3F7D5C; --successSoft:#E4F0E9; --danger:#B3452C; --dangerSoft:#F6E5DF; --muted:#8A8172;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);}
+.serif{font-family:'Playfair Display',serif;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+a{color:inherit;text-decoration:none;}
+::-webkit-scrollbar{height:8px;width:8px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;padding:9px 14px;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--paper);color:var(--ink);white-space:nowrap;}
+.btn:hover{background:var(--surfaceAlt);}
+.btn-dark{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.btn-dark:hover{opacity:.9;}
+.btn-ghost{border:none;background:transparent;padding:6px;border-radius:10px;}
+.btn-ghost:hover{background:rgba(0,0,0,.05);}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+.input{width:100%;border:1px solid var(--line);background:var(--surfaceAlt);border-radius:12px;padding:9px 12px;font-size:13px;outline:none;}
+.label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.03em;}
+.field{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+@media(max-width:640px){.grid2{grid-template-columns:1fr;}}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:10px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface);white-space:nowrap;}
+td{padding:10px 12px;border-top:1px solid var(--line);white-space:nowrap;}
+.modal-bg{position:fixed;inset:0;background:rgba(28,24,21,.5);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;z-index:60;}
+.modal{background:var(--paper);border-radius:18px;width:100%;max-width:640px;margin:24px 0;}
+.navitem{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:600;width:100%;text-align:left;border:none;background:transparent;color:var(--ink);}
+.navitem.active{background:var(--ink);color:var(--paper);}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:100;}
+.stat{padding:16px;display:flex;flex-direction:column;gap:8px;}
+.stat .top{display:flex;justify-content:space-between;align-items:center;}
+.stat .val{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;}
+.iconwrap{width:32px;height:32px;border-radius:999px;background:var(--goldSoft);display:flex;align-items:center;justify-content:center;}
+.dochelp{font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px;background:var(--surface);padding:10px 12px;border-radius:10px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ======================= ICONS ======================= */
+const I = {
+  aperture:(s=32)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity=".5"/>${[0,60,120,180,240,300].map(a=>`<path d="M50 50 L50 8 A42 42 0 0 1 78 22 Z" fill="var(--gold)" opacity=".85" transform="rotate(${a} 50 50)"/>`).join('')}<circle cx="50" cy="50" r="16" fill="var(--paper)" stroke="var(--gold)" stroke-width="1.5"/><text x="50" y="56" text-anchor="middle" font-size="16" font-family="Playfair Display, serif" fill="var(--ink)" font-weight="700">K</text></svg>`,
+  search:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
+  plus:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`,
+  edit:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--goldDeep)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  trash:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>`,
+  doc:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>`,
+  whatsapp:`<svg width="15" height="15" viewBox="0 0 24 24" fill="var(--success)"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2Zm0 18a7.9 7.9 0 0 1-4.03-1.1l-.29-.17-3 .79.8-2.92-.19-.3A7.95 7.95 0 1 1 12 20Zm4.4-5.9c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.42-1.33-1.66-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.43-.58 1.63-1.15.2-.57.2-1.05.14-1.15-.06-.1-.22-.16-.46-.28Z"/></svg>`,
+  print:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>`,
+  download:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`,
+  mail:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg>`,
+  close:`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+  alert:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></svg>`,
+  link:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  chevL:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>`,
+  chevR:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`,
+  dash:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>`,
+  list:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>`,
+  quote:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c1 0 1 0 1 0Z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 3.25-2 4.25V21Z"/></svg>`,
+  users:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  logout:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
+};
+
+/* ======================= HELPERS ======================= */
+const $ = (id) => document.getElementById(id);
+const uid = () => 'KP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
+const num = (v) => Number(v) || 0;
+const rm = (n) => { const v = num(n); return v === 0 ? 'N/A' : 'RM' + v.toLocaleString('en-MY',{minimumFractionDigits:0}); };
+const rmVal = (n) => 'RM' + num(n).toLocaleString('en-MY',{minimumFractionDigits:2});
+const todayISO = () => new Date().toISOString().slice(0,10);
+const monthKeyOf = (iso) => iso ? iso.slice(0,7) : '';
+const displayDate = (iso) => { if(!iso) return '—'; const [y,m,d]=iso.split('-'); return d && `${d}.${m}.${y}` || iso; };
+const esc = (s) => (s===undefined||s===null) ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const waLink = (phone, text) => `https://wa.me/${String(phone||'').replace(/[^0-9]/g,'')}?text=${encodeURIComponent(text)}`;
+const parseTimeRange = (text) => {
+  if(!text) return {start:'',end:''};
+  const m = text.match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*-\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
+  if(!m) return {start:'',end:''};
+  const to24=(h,mi,ap)=>{h=parseInt(h,10); if(ap){const p=ap.toLowerCase()==='pm'; if(p&&h!==12)h+=12; if(!p&&h===12)h=0;} return `${String(h).padStart(2,'0')}:${mi}`;};
+  return {start:to24(m[1],m[2],m[3]), end:to24(m[4],m[5],m[6]||m[3])};
+};
+
+/* ======================= STATE ======================= */
+const State = {
+  authed:false, view:'dashboard', loading:true,
+  bookings:[], quotations:[], staff:[],
+  formModal:null,      // {type:'booking'|'quotation'|'staff', data:{...}, isNew}
+  docModal:null,       // {kind, obj}
+  syncTarget:null,
+  reportMonth: new Date().toISOString().slice(0,7),
+  toast:null,
+};
+
+const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff' };
+
+async function loadAll(){
+  for(const [key, storeKey] of [['bookings',K.bookings],['quotations',K.quotations],['staff',K.staff]]){
+    try{
+      const res = await window.storage.get(storeKey, false);
+      State[key] = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){ State[key] = []; }
+  }
+  if(State.bookings.length === 0) State.bookings = [sampleBooking()];
+  State.loading = false;
+}
+async function persist(key){
+  try{ await window.storage.set(K[key], JSON.stringify(State[key]), false); }catch(e){ console.error('save failed', e); }
+}
+function showToast(msg){ State.toast = msg; render(); setTimeout(()=>{ State.toast=null; render(); }, 3200); }
+
+/* ======================= SAMPLE / EMPTY RECORDS ======================= */
+function sampleBooking(){
+  return { id:uid(), bookingDate:todayISO(), jenisEvent:'Hospital Appreciation Event', namaClient:'Ms Tina',
+    noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
+    namaCP:'', noHpCP:'', pakej:'Pakej photobooth 3 jam', backdrop:'', pakejTambahan:'N/A', waktuEvent:'',
+    transportCharges:0, jumlahKeseluruhan:1150, bayaranDeposit:0, paymentStatus:'Paid', bookingStatus:'Confirmed',
+    calendarSynced:false, quotationRef:'', createdAt:new Date().toISOString() };
+}
+function emptyBooking(){
+  return { id:uid(), bookingDate:todayISO(), jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
+    namaCP:'', noHpCP:'', pakej:'', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
+    jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
+    quotationRef:'', createdAt:new Date().toISOString() };
+}
+function emptyQuotation(){
+  const num_ = 'QUO-' + new Date().getFullYear() + '-' + String(State.quotations.length+1).padStart(3,'0');
+  return { id:uid(), quotationNumber:num_, quotationDate:todayISO(), namaClient:'', noHpClient:'', tarikhEvent:'',
+    lokasiEvent:'', jenisEvent:'', pakej:'', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
+}
+function emptyStaff(){
+  return { id:uid(), eventDate:todayISO(), bookingRef:'', staffName:'', staffPhone:'', role:'', eventLocation:'',
+    workingHours:'', allowanceAmount:0, transportAllowance:0, mealAllowance:0, paymentStatus:'Pending',
+    paymentDate:'', remarks:'', createdAt:new Date().toISOString() };
+}
+function quotationTotal(q){ return num(q.pakejPrice)+num(q.addOnPrice)+num(q.transportCharges)-num(q.discount); }
+function quotationTax(q){ return quotationTotal(q) * num(q.sstPercent)/100; }
+function quotationGrandTotal(q){ return quotationTotal(q) + quotationTax(q); }
+function staffTotal(s){ return num(s.allowanceAmount)+num(s.transportAllowance)+num(s.mealAllowance); }
+
+/* ======================= FIELD META (drives form rendering) ======================= */
+const BOOKING_FIELDS = [
+  ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','text'],
+  ['namaClient','Nama Client','text'],['noHpClient','No HP Client','text'],
+  ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
+  ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
+  ['pakej','Pilihan Pakej','text'],['backdrop','Pilihan Backdrop','text'],
+  ['pakejTambahan','Pakej Tambahan','text'],['waktuEvent','Waktu Event','text'],
+  ['transportCharges','Transportation Charges (RM)','number'],
+  ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
+];
+const QUOTATION_FIELDS = [
+  ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
+  ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Date','date'],
+  ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','text'],
+  ['pakej','Package Selected','text'],['pakejPrice','Package Price (RM)','number'],
+  ['backdrop','Backdrop Selected','text'],['addOn','Add-On Package','text'],
+  ['addOnPrice','Add-On Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
+  ['discount','Discount (RM)','number'],['sstPercent','SST / Tax (%)','number'],
+  ['depositRequired','Deposit Required (RM)','number'],
+];
+const STAFF_FIELDS = [
+  ['eventDate','Event Date','date'],['bookingRef','Booking Reference','text'],
+  ['staffName','Staff Name','text'],['staffPhone','Staff Phone Number','text'],
+  ['role','Role','text'],['eventLocation','Event Location','text'],
+  ['workingHours','Working Hours','text'],['allowanceAmount','Allowance Amount (RM)','number'],
+  ['transportAllowance','Transport Allowance (RM)','number'],['mealAllowance','Meal Allowance (RM)','number'],
+  ['remarks','Remarks','text'],
+];
+
+/* ======================= PDF BUILDING ======================= */
+const TERMS = "1. A non-refundable deposit is required to confirm this booking. 2. Full balance is due on or before the event date unless otherwise agreed. 3. Any changes to event date, time, or location must be notified at least 7 days in advance. 4. Kerlip Photobooth is not liable for delays caused by venue access, power supply, or weather for outdoor setups. 5. Prices are valid for the scope described in this document only.";
+
+function docHeader(doc, docType, docNumber){
+  doc.setFillColor(28,24,21); doc.rect(0,0,210,24,'F');
+  doc.setDrawColor(176,138,62); doc.setLineWidth(0.7); doc.circle(16,12,7);
+  doc.setFontSize(10); doc.setTextColor(176,138,62); doc.setFont('helvetica','bold'); doc.text('K',16,14.5,{align:'center'});
+  doc.setFontSize(15); doc.setTextColor(255,253,249); doc.text('KERLIP PHOTOBOOTH',28,11);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.text('Premium Photobooth Experiences · Malaysia',28,16.5);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text(docType.toUpperCase(),194,9,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('No: '+docNumber,194,14,{align:'right'});
+  doc.text('Generated: '+new Date().toLocaleDateString('en-MY'),194,18.5,{align:'right'});
+  doc.setTextColor(28,24,21);
+}
+function docSectionTitle(doc, text, y){
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(140,108,46); doc.text(text.toUpperCase(),16,y);
+  doc.setDrawColor(231,223,204); doc.line(16,y+1.5,194,y+1.5); doc.setTextColor(28,24,21); doc.setFont('helvetica','normal');
+  return y+7;
+}
+function kvBlock(doc, pairs, x, y, colW){
+  doc.setFontSize(9);
+  pairs.forEach(([k,v])=>{
+    doc.setTextColor(138,129,114); doc.text(k,x,y);
+    doc.setTextColor(28,24,21); doc.text(String(v||'—'), x, y+4.3);
+    y += 10;
+  });
+  return y;
+}
+function signatureBlock(doc, y){
+  if(y > 262) { doc.addPage(); y = 20; }
+  doc.setDrawColor(28,24,21); doc.setLineWidth(0.3);
+  doc.line(16,y,88,y); doc.line(122,y,194,y);
+  doc.setFontSize(8); doc.setTextColor(90,84,74);
+  doc.text('Client Signature',16,y+5); doc.text('Kerlip Photobooth Representative',122,y+5);
+  doc.text('Date: _______________',16,y+11); doc.text('Date: _______________',122,y+11);
+  return y+18;
+}
+function termsBlock(doc, y){
+  if(y > 250) { doc.addPage(); y = 20; }
+  y = docSectionTitle(doc,'Terms & Conditions',y);
+  doc.setFontSize(7.5); doc.setTextColor(90,84,74);
+  const lines = doc.splitTextToSize(TERMS,178);
+  doc.text(lines,16,y);
+  return y + lines.length*3.6 + 6;
+}
+function footerNote(doc){
+  const h = doc.internal.pageSize.getHeight();
+  doc.setFontSize(7.5); doc.setTextColor(138,129,114);
+  doc.text('Kerlip Photobooth · WhatsApp / Phone on file · Thank you for choosing us for your event.',105,h-10,{align:'center'});
+}
+
+function buildQuotationPDF(q){
+  const doc = new window.jspdf.jsPDF();
+  docHeader(doc,'Quotation',q.quotationNumber);
+  let y = 34;
+  y = docSectionTitle(doc,'Client & Event Details',y);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2},
+    body:[
+      ['Client Name', q.namaClient||'—','Quotation Date', displayDate(q.quotationDate)],
+      ['Client Phone', q.noHpClient||'—','Status', q.status],
+      ['Event Date', displayDate(q.tarikhEvent),'Event Type', q.jenisEvent||'—'],
+      ['Event Location', q.lokasiEvent||'—','', ''],
+    ], columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}}, margin:{left:16,right:16},
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Package & Pricing',y);
+  doc.autoTable({ startY:y, theme:'grid',
+    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Item','Description','Amount (RM)']],
+    body:[
+      ['Package', q.pakej||'—', num(q.pakejPrice).toFixed(2)],
+      ['Backdrop', q.backdrop||'—', '—'],
+      ['Add-On', q.addOn||'N/A', num(q.addOnPrice).toFixed(2)],
+      ['Transportation','—', num(q.transportCharges).toFixed(2)],
+      ['Discount','—', '-'+num(q.discount).toFixed(2)],
+      ['SST / Tax ('+num(q.sstPercent)+'%)','—', quotationTax(q).toFixed(2)],
+    ],
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Total Amount:', 130, y); doc.text(rmVal(quotationGrandTotal(q)), 194, y, {align:'right'});
+  y += 6; doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.text('Deposit Required:', 130, y); doc.text(rmVal(q.depositRequired), 194, y, {align:'right'});
+  y += 6; doc.setFont('helvetica','bold');
+  doc.text('Balance:', 130, y); doc.text(rmVal(quotationGrandTotal(q)-num(q.depositRequired)), 194, y, {align:'right'});
+  y += 12;
+  y = termsBlock(doc,y);
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildBookingSummaryPDF(b){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'BKG-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  docHeader(doc,'Booking Summary',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Client & Event Details',y);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2}, margin:{left:16,right:16},
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}},
+    body:[
+      ['Client Name', b.namaClient||'—','Booking Status', b.bookingStatus],
+      ['Client Phone', b.noHpClient||'—','Payment Status', b.paymentStatus],
+      ['Event Date', displayDate(b.tarikhEvent),'Event Type', b.jenisEvent||'—'],
+      ['Event Time', b.waktuEvent||'TBC','Event Location', b.lokasiEvent||'—'],
+      ['Contact Person', b.namaCP||'—','Contact Person Phone', b.noHpCP||'—'],
+    ]});
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Package Details',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Item','Detail']],
+    body:[['Package', b.pakej||'—'],['Backdrop', b.backdrop||'—'],['Add-On', b.pakejTambahan||'N/A'],
+      ['Transportation Charges', rm(b.transportCharges)]],
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Payment Summary',y);
+  const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
+    body:[['Total Amount', rmVal(b.jumlahKeseluruhan)],['Deposit Paid', rmVal(b.bayaranDeposit)],
+      ['Balance Due', rmVal(bal)]],
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},1:{halign:'right',fontStyle:'bold'}}});
+  y = doc.lastAutoTable.finalY + 10;
+  y = termsBlock(doc,y);
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildInvoicePDF(b){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'INV-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  docHeader(doc,'Invoice',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Bill To',y);
+  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)],['Location',b.lokasiEvent]],16,y,90);
+  y += 2;
+  y = docSectionTitle(doc,'Charges',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Description','Amount (RM)']],
+    body:[[b.pakej||'Photobooth Package', num(b.jumlahKeseluruhan-num(b.transportCharges)).toFixed(2)],
+      ['Transportation Charges', num(b.transportCharges).toFixed(2)]],
+    foot:[['Total Due', num(b.jumlahKeseluruhan).toFixed(2)]],
+    footStyles:{fillColor:[239,228,196],textColor:[28,24,21],fontStyle:'bold'},
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  doc.setFontSize(9);
+  doc.text('Deposit Paid: '+rmVal(b.bayaranDeposit),16,y); y+=5;
+  doc.setFont('helvetica','bold');
+  doc.text('Balance Due: '+rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)),16,y); doc.setFont('helvetica','normal');
+  y += 10;
+  y = termsBlock(doc,y);
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildReceiptPDF(b){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'RCT-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  docHeader(doc,'Official Receipt',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Received From',y);
+  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)]],16,y,90);
+  y += 2;
+  y = docSectionTitle(doc,'Payment Received',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Description','Amount (RM)']],
+    body:[['Total Package Amount', num(b.jumlahKeseluruhan).toFixed(2)],
+      ['Amount Received', num(b.bayaranDeposit || b.jumlahKeseluruhan).toFixed(2)],
+      ['Payment Status', b.paymentStatus]],
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  doc.setFont('helvetica','bold');
+  doc.text('Balance Remaining: '+rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)),16,y); doc.setFont('helvetica','normal');
+  y += 12;
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildStaffPDF(s){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'SA-'+s.eventDate.replace(/-/g,'')+'-'+s.id.slice(-4);
+  docHeader(doc,'Staff Allowance Slip',docNo);
+  let y = 34;
+  y = docSectionTitle(doc,'Staff & Event Details',y);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2}, margin:{left:16,right:16},
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}},
+    body:[
+      ['Staff Name', s.staffName||'—','Role', s.role||'—'],
+      ['Staff Phone', s.staffPhone||'—','Booking Reference', s.bookingRef||'—'],
+      ['Event Date', displayDate(s.eventDate),'Working Hours', s.workingHours||'—'],
+      ['Event Location', s.eventLocation||'—','Payment Status', s.paymentStatus],
+    ]});
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Allowance Breakdown',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
+    head:[['Item','Amount (RM)']],
+    body:[['Allowance Amount', num(s.allowanceAmount).toFixed(2)],['Transport Allowance', num(s.transportAllowance).toFixed(2)],
+      ['Meal Allowance', num(s.mealAllowance).toFixed(2)]],
+    foot:[['Total Payable', staffTotal(s).toFixed(2)]],
+    footStyles:{fillColor:[239,228,196],textColor:[28,24,21],fontStyle:'bold'},
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  if(s.remarks){ doc.setFontSize(9); doc.setTextColor(90,84,74); doc.text('Remarks: '+s.remarks,16,y); y+=8; }
+  y = signatureBlock(doc,y);
+  footerNote(doc);
+  return doc;
+}
+
+function buildMonthlyReportPDF(monthKey, bookings){
+  const doc = new window.jspdf.jsPDF();
+  const docNo = 'RPT-'+monthKey.replace('-','');
+  docHeader(doc,'Monthly Sales Report',docNo);
+  let y = 34;
+  const list = bookings.filter(b=>monthKeyOf(b.tarikhEvent)===monthKey && b.bookingStatus!=='Cancelled');
+  const total = list.reduce((s,b)=>s+num(b.jumlahKeseluruhan),0);
+  const collected = list.reduce((s,b)=>s+num(b.bayaranDeposit),0);
+  const [yr,mo] = monthKey.split('-');
+  const label = new Date(yr,mo-1,1).toLocaleDateString('en-MY',{month:'long',year:'numeric'});
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text('Reporting Month: '+label,16,y); doc.setFont('helvetica','normal'); y+=8;
+  y = docSectionTitle(doc,'Bookings This Month',y);
+  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:8.5},
+    styles:{fontSize:8.5,cellPadding:2.5}, margin:{left:16,right:16},
+    head:[['Date','Client','Package','Total (RM)','Deposit (RM)','Balance (RM)','Status']],
+    body: list.map(b=>[displayDate(b.tarikhEvent), b.namaClient, b.pakej||'—', num(b.jumlahKeseluruhan).toFixed(2),
+      num(b.bayaranDeposit).toFixed(2), (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)).toFixed(2), b.bookingStatus]),
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  y = docSectionTitle(doc,'Summary',y);
+  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
+    body:[['Total Bookings', list.length],['Total Sales Value', rmVal(total)],['Total Collected (Deposits)', rmVal(collected)],
+      ['Outstanding Balance', rmVal(total-collected)]],
+    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},1:{halign:'right',fontStyle:'bold'}}});
+  y = doc.lastAutoTable.finalY + 12;
+  footerNote(doc);
+  return doc;
+}
+
+/* ======================= GOOGLE CALENDAR SYNC ======================= */
+function buildGCalUrl(b, start, end){
+  const title = `Kerlip Photobooth - ${b.namaClient} - ${b.jenisEvent||'Event'}`;
+  const details = [
+    `Client: ${b.namaClient}`, `Phone: ${b.noHpClient}`, `Location: ${b.lokasiEvent}`,
+    `Package: ${b.pakej}`, `Backdrop: ${b.backdrop||'N/A'}`, `Add-on: ${b.pakejTambahan||'N/A'}`,
+    `Total: ${rm(b.jumlahKeseluruhan)}`, `Deposit Paid: ${rm(b.bayaranDeposit)}`,
+    `Balance: ${rm(b.jumlahKeseluruhan-b.bayaranDeposit)}`, `Payment Status: ${b.paymentStatus}`,
+    `Contact Person (event day): ${b.namaCP||'—'}`, `Contact Person Phone: ${b.noHpCP||'—'}`,
+  ].join('\n');
+  const dc = b.tarikhEvent.replace(/-/g,'');
+  const dates = `${dc}T${start.replace(':','')}00/${dc}T${end.replace(':','')}00`;
+  const params = new URLSearchParams({action:'TEMPLATE',text:title,dates,details,location:b.lokasiEvent||'',ctz:'Asia/Kuala_Lumpur'});
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+/* ======================= RENDER: SHELL ======================= */
+function render(){
+  const app = $('app');
+  if(State.loading){ app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface)">${I.aperture(48)}</div>`; return; }
+  if(!State.authed){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
+
+  app.innerHTML = `
+    <div style="min-height:100vh">
+      <div style="position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--paper);border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${I.aperture(32)}
+          <div>
+            <div class="serif" style="font-weight:700;font-size:14px;line-height:1">Kerlip Photobooth</div>
+            <div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Admin Console</div>
+          </div>
+        </div>
+        <button class="btn" id="btn-logout">${I.logout} Sign out</button>
+      </div>
+      <div style="max-width:1180px;margin:0 auto;padding:20px;display:flex;gap:20px;flex-wrap:wrap" id="layout">
+        <div style="width:200px;flex-shrink:0" id="sidebar"></div>
+        <div style="flex:1;min-width:0" id="main"></div>
+      </div>
+    </div>
+    ${State.formModal ? renderFormModal() : ''}
+    ${State.docModal ? renderDocModal() : ''}
+    ${State.syncTarget ? renderSyncModal() : ''}
+    ${State.toast ? `<div class="toast">${esc(State.toast)}</div>` : ''}
+  `;
+  $('sidebar').innerHTML = renderSidebar();
+  $('main').innerHTML = renderMain();
+  attachGlobalEvents();
+}
+
+function renderLogin(){
+  return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface);padding:16px">
+    <div class="card" style="width:100%;max-width:360px;padding:32px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px">
+        ${I.aperture(56)}
+        <div style="text-align:center">
+          <div class="serif" style="font-weight:700;font-size:19px">Kerlip Photobooth</div>
+          <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Admin Console</div>
+        </div>
+      </div>
+      <form id="login-form" style="display:flex;flex-direction:column;gap:10px">
+        <label class="label">Admin password</label>
+        <input class="input" id="login-pw" type="password" placeholder="Enter password" autofocus />
+        <div id="login-err" style="font-size:12px;color:var(--danger)"></div>
+        <button class="btn btn-dark" type="submit" style="justify-content:center;margin-top:4px">Sign in</button>
+        <div style="font-size:10.5px;text-align:center;color:var(--muted);margin-top:2px">Demo password: <span style="font-family:monospace">kerlip2026</span></div>
+      </form>
+    </div>
+  </div>`;
+}
+function attachLoginEvents(){
+  $('login-form').onsubmit = (e) => {
+    e.preventDefault();
+    if($('login-pw').value === 'kerlip2026'){ State.authed = true; render(); }
+    else $('login-err').textContent = 'Incorrect password. Try kerlip2026 for this demo.';
+  };
+}
+
+function renderSidebar(){
+  const nav = [
+    ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
+    ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
+  ];
+  const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
+  return `
+    <div class="card" style="padding:8px;display:flex;flex-direction:column;gap:2px">
+      ${nav.map(([id,icon,label])=>`<button class="navitem ${State.view===id?'active':''}" data-nav="${id}">${icon}${label}</button>`).join('')}
+    </div>
+    ${reminders.length ? `<div class="card" style="margin-top:14px;padding:14px;background:var(--dangerSoft);border:none">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--danger);margin-bottom:8px">${I.alert} Unpaid Balance</div>
+      ${reminders.slice(0,5).map(b=>`<div style="font-size:11.5px;color:var(--danger);margin-bottom:4px">${esc(b.namaClient)} — ${rm(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))} due</div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+function renderMain(){
+  if(State.view==='dashboard') return renderDashboard();
+  if(State.view==='bookings') return renderBookings();
+  if(State.view==='quotations') return renderQuotations();
+  if(State.view==='staff') return renderStaff();
+  return '';
+}
+
+/* ======================= DASHBOARD ======================= */
+function statCard(icon,label,val,sub,bg){
+  return `<div class="card stat"><div class="top"><span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">${label}</span>
+    <div class="iconwrap" style="${bg?`background:${bg}`:''}">${icon}</div></div>
+    <div class="val">${val}</div>${sub?`<div style="font-size:11px;color:var(--muted)">${sub}</div>`:''}</div>`;
+}
+function renderDashboard(){
+  const b = State.bookings, s = State.staff;
+  const mk = todayISO().slice(0,7);
+  const total=b.length, confirmed=b.filter(x=>x.bookingStatus==='Confirmed').length, pending=b.filter(x=>x.bookingStatus==='Pending').length;
+  const paid=b.filter(x=>x.paymentStatus==='Paid').length, unpaid=b.filter(x=>x.paymentStatus==='Unpaid').length;
+  const monthlyRevenue = b.filter(x=>monthKeyOf(x.tarikhEvent)===mk && x.bookingStatus!=='Cancelled').reduce((s,x)=>s+num(x.jumlahKeseluruhan),0);
+  const staffThisMonth = s.filter(x=>monthKeyOf(x.eventDate)===mk);
+  const staffTotalMonth = staffThisMonth.reduce((s,x)=>s+staffTotal(x),0);
+  const staffPaid = staffThisMonth.filter(x=>x.paymentStatus==='Paid').reduce((s,x)=>s+staffTotal(x),0);
+  const staffPending = staffTotalMonth - staffPaid;
+  const netProfit = monthlyRevenue - staffTotalMonth;
+  const upcoming = b.filter(x=>x.tarikhEvent>=todayISO() && x.bookingStatus!=='Cancelled').sort((a,c)=>a.tarikhEvent.localeCompare(c.tarikhEvent)).slice(0,6);
+
+  return `
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+      ${statCard(I.list,'Total Bookings',total)}
+      ${statCard(`<span style="color:var(--success)">✓</span>`,'Confirmed',confirmed)}
+      ${statCard(`<span style="color:var(--goldDeep)">⏱</span>`,'Pending',pending)}
+      ${statCard(`<span>${rm(0)==='N/A'?'':''}RM</span>`,'Paid',paid)}
+      ${statCard(I.alert,'Unpaid',unpaid,'','var(--dangerSoft)')}
+      ${statCard('RM','Monthly Revenue',rm(monthlyRevenue),'Active bookings this month')}
+    </div>
+    <div class="serif" style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--goldDeep);text-transform:uppercase;margin-top:4px">Crew &amp; Profit</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+      ${statCard(I.users,'Staff Allowance (Month)',rm(staffTotalMonth))}
+      ${statCard('✓','Paid Allowance',rm(staffPaid))}
+      ${statCard(I.alert,'Pending Allowance',rm(staffPending),'','var(--dangerSoft)')}
+      ${statCard('RM','Net Profit',rm(netProfit),'Revenue minus staff allowance')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="dgrid">
+      <div class="card" style="padding:18px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:6px">${I.users} Upcoming Events</div>
+        ${upcoming.length===0?`<div style="font-size:13px;color:var(--muted)">No upcoming events.</div>`:
+          upcoming.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:12px;background:var(--surfaceAlt);margin-bottom:6px">
+            <div><div style="font-size:13px;font-weight:600">${esc(x.namaClient)} — ${esc(x.jenisEvent||'Event')}</div>
+            <div style="font-size:11px;color:var(--muted)">${displayDate(x.tarikhEvent)} · ${esc(x.lokasiEvent)}</div></div>
+            ${badge(bookingTone(x.bookingStatus),x.bookingStatus)}</div>`).join('')}
+      </div>
+      ${renderMiniCalendar()}
+    </div>
+  </div>
+  <style>@media(max-width:900px){.dgrid{grid-template-columns:1fr !important}}</style>`;
+}
+
+let calCursor = new Date();
+function renderMiniCalendar(){
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  const first = new Date(y,m,1), startWd = first.getDay(), days = new Date(y,m+1,0).getDate();
+  const byDate = {};
+  State.bookings.forEach(b=>{ if(b.tarikhEvent){ (byDate[b.tarikhEvent]=byDate[b.tarikhEvent]||[]).push(b);} });
+  let cells = ''; for(let i=0;i<startWd;i++) cells+='<div></div>';
+  for(let d=1; d<=days; d++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has = byDate[iso]; const isToday = iso===todayISO();
+    cells += `<div style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;position:relative;
+      background:${has?'var(--goldSoft)':'transparent'};border:${isToday?'1.5px solid var(--gold)':'1px solid transparent'};
+      color:${has?'var(--goldDeep)':'var(--ink)'};font-weight:${has?'700':'400'}" title="${has?esc(has.map(x=>x.namaClient).join(', ')):''}">${d}</div>`;
+  }
+  const label = calCursor.toLocaleDateString('en-MY',{month:'long',year:'numeric'});
+  return `<div class="card" style="padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">${I.dash} ${label}</div>
+      <div style="display:flex;gap:4px"><button class="btn-ghost" data-cal="-1">${I.chevL}</button><button class="btn-ghost" data-cal="1">${I.chevR}</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10.5px;color:var(--muted);text-align:center;margin-bottom:4px">
+      <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
+  </div>`;
+}
+
+function badge(tone,text){
+  const map = { success:['var(--successSoft)','var(--success)'], danger:['var(--dangerSoft)','var(--danger)'], gold:['var(--goldSoft)','var(--goldDeep)'], muted:['var(--surface)','var(--muted)'] };
+  const [bg,fg] = map[tone]||map.muted;
+  return `<span class="badge" style="background:${bg};color:${fg}">${esc(text)}</span>`;
+}
+const paymentTone = (s)=> s==='Paid'?'success':s==='Deposit Paid'?'gold':'danger';
+const bookingTone = (s)=> s==='Confirmed'?'success':s==='Pending'?'gold':s==='Cancelled'?'danger':'muted';
+const quoteTone = (s)=> s==='Accepted'?'success':s==='Sent'?'gold':s==='Rejected'?'danger':'muted';
+
+/* ======================= BOOKINGS VIEW ======================= */
+let bookingFilters = { q:'', date:'', pay:'All' };
+function renderBookings(){
+  const f = bookingFilters;
+  const rows = State.bookings.filter(b=>{
+    const mq = !f.q || b.namaClient.toLowerCase().includes(f.q.toLowerCase()) || b.noHpClient.includes(f.q);
+    const md = !f.date || b.tarikhEvent === f.date;
+    const mp = f.pay==='All' || b.paymentStatus===f.pay;
+    return mq && md && mp;
+  });
+  return `
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <div class="card" style="display:flex;align-items:center;gap:8px;padding:9px 12px;flex:1;min-width:200px">
+        ${I.search}<input id="f-q" class="input" style="border:none;background:transparent;padding:0" placeholder="Search client name or phone…" value="${esc(f.q)}" />
+      </div>
+      <input id="f-date" type="date" class="input" style="width:auto" value="${f.date}" />
+      <select id="f-pay" class="input" style="width:auto">
+        <option ${f.pay==='All'?'selected':''}>All</option>
+        ${['Unpaid','Deposit Paid','Paid'].map(s=>`<option ${f.pay===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <button class="btn" id="btn-export-excel">${I.download} Excel</button>
+      <button class="btn" id="btn-export-pdf">${I.doc} PDF List</button>
+      <button class="btn btn-dark" id="btn-new-booking">${I.plus} New Booking</button>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr>${['Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(b=>{
+            const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
+            return `<tr>
+              <td>${displayDate(b.tarikhEvent)}</td>
+              <td style="font-weight:600">${esc(b.namaClient)}</td>
+              <td>${esc(b.noHpClient)}</td>
+              <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${esc(b.lokasiEvent)}">${esc(b.lokasiEvent)}</td>
+              <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis" title="${esc(b.pakej)}">${esc(b.pakej)}</td>
+              <td>${rm(b.jumlahKeseluruhan)}</td>
+              <td style="color:${bal>0?'var(--danger)':'var(--success)'};font-weight:700">${rm(bal)}</td>
+              <td>${badge(paymentTone(b.paymentStatus),b.paymentStatus)}</td>
+              <td>${badge(bookingTone(b.bookingStatus),b.bookingStatus)}</td>
+              <td>${b.bookingStatus==='Confirmed' ? `<button class="btn-ghost" data-sync="${b.id}" style="font-size:11px;font-weight:700;color:${b.calendarSynced?'var(--success)':'var(--gold)'};display:flex;align-items:center;gap:4px">${I.link} ${b.calendarSynced?'Synced':'Sync'}</button>` : '<span style="font-size:11px;color:var(--muted)">—</span>'}</td>
+              <td><button class="btn-ghost" data-doc="booking:${b.id}" title="Documents">${I.doc}</button></td>
+              <td><div style="display:flex;gap:2px">
+                <a class="btn-ghost" href="${waLink(b.noHpClient,`Hi ${b.namaClient}, this is Kerlip Photobooth regarding your booking on ${displayDate(b.tarikhEvent)}.`)}" target="_blank" title="WhatsApp">${I.whatsapp}</a>
+                <button class="btn-ghost" data-edit="${b.id}" title="Edit">${I.edit}</button>
+                <button class="btn-ghost" data-del="${b.id}" title="Delete">${I.trash}</button>
+              </div></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No bookings match your search.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ======================= QUOTATIONS VIEW ======================= */
+function renderQuotations(){
+  const rows = State.quotations;
+  return `
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-dark" id="btn-new-quotation">${I.plus} New Quotation</button>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr>${['No.','Date','Client','Event Date','Package','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(q=>{
+            const total = quotationGrandTotal(q), bal = total-num(q.depositRequired);
+            return `<tr>
+              <td style="font-weight:600">${q.quotationNumber}</td>
+              <td>${displayDate(q.quotationDate)}</td>
+              <td>${esc(q.namaClient)}</td>
+              <td>${displayDate(q.tarikhEvent)}</td>
+              <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${esc(q.pakej)}</td>
+              <td>${rm(total)}</td>
+              <td>${rm(q.depositRequired)}</td>
+              <td>${rm(bal)}</td>
+              <td>${badge(quoteTone(q.status),q.status)}</td>
+              <td><button class="btn-ghost" data-doc="quotation:${q.id}" title="Quotation PDF">${I.doc}</button></td>
+              <td><div style="display:flex;gap:2px;flex-wrap:wrap">
+                <button class="btn-ghost" data-edit-q="${q.id}" title="Edit">${I.edit}</button>
+                <button class="btn-ghost" data-del-q="${q.id}" title="Delete">${I.trash}</button>
+                ${q.status!=='Accepted' ? `<button class="btn" style="padding:5px 9px;font-size:11px" data-convert="${q.id}">Convert to Booking</button>` : `<span style="font-size:11px;color:var(--success);font-weight:700;align-self:center">Booked ✓</span>`}
+              </div></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ======================= STAFF ALLOWANCE VIEW ======================= */
+function renderStaff(){
+  const rows = State.staff;
+  return `
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-dark" id="btn-new-staff">${I.plus} New Staff Entry</button>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr>${['Event Date','Booking Ref','Staff','Phone','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(s=>`<tr>
+              <td>${displayDate(s.eventDate)}</td>
+              <td>${esc(s.bookingRef)||'—'}</td>
+              <td style="font-weight:600">${esc(s.staffName)}</td>
+              <td>${esc(s.staffPhone)}</td>
+              <td>${esc(s.role)}</td>
+              <td>${esc(s.workingHours)}</td>
+              <td>${rm(staffTotal(s))}</td>
+              <td>${badge(s.paymentStatus==='Paid'?'success':'gold',s.paymentStatus)}</td>
+              <td><button class="btn-ghost" data-doc="staff:${s.id}" title="Allowance Slip PDF">${I.doc}</button></td>
+              <td><div style="display:flex;gap:2px">
+                <a class="btn-ghost" href="${waLink(s.staffPhone,`Hi ${s.staffName}, your allowance for the event on ${displayDate(s.eventDate)} is ${rm(staffTotal(s))}.`)}" target="_blank" title="WhatsApp">${I.whatsapp}</a>
+                <button class="btn-ghost" data-edit-s="${s.id}" title="Edit">${I.edit}</button>
+                <button class="btn-ghost" data-del-s="${s.id}" title="Delete">${I.trash}</button>
+              </div></td>
+            </tr>`).join('') || `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted)">No staff allowance entries yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ======================= FORM MODAL (booking / quotation / staff) ======================= */
+function renderFormModal(){
+  const { type, data } = State.formModal;
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:STAFF_FIELDS;
+  const title = type==='booking' ? (data._isNew?'New Booking':'Edit Booking') : type==='quotation' ? (data._isNew?'New Quotation':'Edit Quotation') : (data._isNew?'New Staff Entry':'Edit Staff Entry');
+
+  let extra = '';
+  if(type==='booking'){
+    const bal = num(data.jumlahKeseluruhan)-num(data.bayaranDeposit);
+    extra = `
+      <div class="field"><span class="label">Balance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rm(bal)}</div></div>
+      <div class="field"><span class="label">Payment Status</span><select class="input" id="ff-paymentStatus">${['Unpaid','Deposit Paid','Paid'].map(s=>`<option ${data.paymentStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><span class="label">Booking Status</span><select class="input" id="ff-bookingStatus">${['Pending','Confirmed','Cancelled','Completed'].map(s=>`<option ${data.bookingStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>`;
+  } else if(type==='quotation'){
+    const total = quotationGrandTotal(data), bal = total-num(data.depositRequired);
+    extra = `
+      <div class="field"><span class="label">Quotation Number</span><div class="input" style="background:var(--surface);font-weight:700">${data.quotationNumber}</div></div>
+      <div class="field"><span class="label">Total Amount (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(total)}</div></div>
+      <div class="field"><span class="label">Balance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(bal)}</div></div>
+      <div class="field"><span class="label">Quotation Status</span><select class="input" id="ff-status">${['Draft','Sent','Accepted','Rejected'].map(s=>`<option ${data.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`;
+  } else {
+    extra = `
+      <div class="field"><span class="label">Total Staff Allowance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(staffTotal(data))}</div></div>
+      <div class="field"><span class="label">Payment Status</span><select class="input" id="ff-paymentStatus">${['Pending','Paid'].map(s=>`<option ${data.paymentStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><span class="label">Payment Date</span><input class="input" type="date" id="ff-paymentDate" value="${data.paymentDate||''}" /></div>`;
+  }
+
+  return `<div class="modal-bg" id="modal-bg">
+    <div class="modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)">
+        <div class="serif" style="font-weight:700;font-size:16px">${title}</div>
+        <button class="btn-ghost" id="modal-close">${I.close}</button>
+      </div>
+      <form id="entity-form" style="padding:18px 20px">
+        <div id="form-warn" style="display:none;align-items:flex-start;gap:8px;background:var(--dangerSoft);color:var(--danger);border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">${I.alert}<span id="form-warn-text"></span></div>
+        <div class="grid2">
+          ${meta.map(([key,label,t])=>`<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`).join('')}
+          ${extra}
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
+          <button type="button" class="btn" id="modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-dark">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+/* ======================= DOC MODAL ======================= */
+function renderDocModal(){
+  const { kind, obj } = State.docModal;
+  const titles = { booking:'Booking Documents', quotation:'Quotation Document', staff:'Staff Allowance Slip' };
+  let buttons = '';
+  if(kind==='booking'){
+    buttons = ['Booking Summary','Invoice','Receipt'].map(t=>`
+      <div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">${t} PDF</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn" data-pdf="download:${t}">${I.download} Download</button>
+          <button class="btn" data-pdf="print:${t}">${I.print} Print</button>
+          <button class="btn" data-pdf="wa:${t}">${I.whatsapp} WhatsApp</button>
+          <button class="btn" data-pdf="mail:${t}">${I.mail} Email</button>
+        </div>
+      </div>`).join('');
+  } else {
+    const t = kind==='quotation' ? 'Quotation' : 'Staff Allowance';
+    buttons = `<div style="border:1px solid var(--line);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">${t} PDF</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" data-pdf="download:${t}">${I.download} Download</button>
+        <button class="btn" data-pdf="print:${t}">${I.print} Print</button>
+        <button class="btn" data-pdf="wa:${t}">${I.whatsapp} WhatsApp</button>
+        <button class="btn" data-pdf="mail:${t}">${I.mail} Email</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="modal-bg" id="doc-modal-bg">
+    <div class="modal" style="max-width:440px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)">
+        <div class="serif" style="font-weight:700;font-size:16px">${titles[kind]}</div>
+        <button class="btn-ghost" id="doc-modal-close">${I.close}</button>
+      </div>
+      <div style="padding:18px 20px">
+        ${buttons}
+        <div class="dochelp">${I.alert} WhatsApp and Email open with the message pre-filled and download the PDF automatically — for security reasons browsers can't auto-attach files, so please attach the downloaded PDF manually in the chat or email that opens.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ======================= SYNC MODAL ======================= */
+function renderSyncModal(){
+  const b = State.syncTarget;
+  const parsed = parseTimeRange(b.waktuEvent);
+  const start = parsed.start || '10:00', end = parsed.end || '13:00';
+  return `<div class="modal-bg" id="sync-modal-bg">
+    <div class="modal" style="max-width:360px">
+      <div style="padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">${I.link} Confirm event time</div>
+          <button class="btn-ghost" id="sync-close">${I.close}</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">"Waktu Event" ${b.waktuEvent?'could not be fully parsed':'is empty'}. Set the start and end time to create the Google Calendar entry for <strong>${displayDate(b.tarikhEvent)}</strong>.</p>
+        <div class="grid2">
+          <div class="field"><span class="label">Start</span><input class="input" type="time" id="sync-start" value="${start}" /></div>
+          <div class="field"><span class="label">End</span><input class="input" type="time" id="sync-end" value="${end}" /></div>
+        </div>
+        <button class="btn btn-dark" id="sync-open" style="width:100%;justify-content:center;margin-top:6px">${I.link} Open in Google Calendar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ======================= EVENT WIRING ======================= */
+function attachGlobalEvents(){
+  $('btn-logout').onclick = () => { State.authed = false; render(); };
+  document.querySelectorAll('[data-nav]').forEach(el => el.onclick = () => { State.view = el.dataset.nav; render(); });
+  document.querySelectorAll('[data-cal]').forEach(el => el.onclick = () => {
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth()+Number(el.dataset.cal), 1); render();
+  });
+
+  // Bookings
+  const btnNewB = $('btn-new-booking'); if(btnNewB) btnNewB.onclick = () => openForm('booking', {...emptyBooking(), _isNew:true});
+  document.querySelectorAll('[data-edit]').forEach(el => el.onclick = () => {
+    const b = State.bookings.find(x=>x.id===el.dataset.edit); openForm('booking', {...b});
+  });
+  document.querySelectorAll('[data-del]').forEach(el => el.onclick = () => {
+    const b = State.bookings.find(x=>x.id===el.dataset.del);
+    if(confirm(`Delete booking for ${b.namaClient}? This cannot be undone.`)){
+      State.bookings = State.bookings.filter(x=>x.id!==b.id); persist('bookings'); showToast('Booking deleted.'); render();
+    }
+  });
+  document.querySelectorAll('[data-sync]').forEach(el => el.onclick = () => {
+    State.syncTarget = State.bookings.find(x=>x.id===el.dataset.sync); render();
+  });
+  const fq=$('f-q'), fd=$('f-date'), fp=$('f-pay');
+  if(fq){ fq.oninput=()=>{bookingFilters.q=fq.value; renderPreserveScroll();}; }
+  if(fd){ fd.onchange=()=>{bookingFilters.date=fd.value; render();}; }
+  if(fp){ fp.onchange=()=>{bookingFilters.pay=fp.value; render();}; }
+  const be=$('btn-export-excel'); if(be) be.onclick = exportBookingsExcel;
+  const bp=$('btn-export-pdf'); if(bp) bp.onclick = exportBookingsListPDF;
+
+  // Quotations
+  const btnNewQ = $('btn-new-quotation'); if(btnNewQ) btnNewQ.onclick = () => openForm('quotation', {...emptyQuotation(), _isNew:true});
+  document.querySelectorAll('[data-edit-q]').forEach(el => el.onclick = () => {
+    const q = State.quotations.find(x=>x.id===el.dataset.editQ); openForm('quotation', {...q});
+  });
+  document.querySelectorAll('[data-del-q]').forEach(el => el.onclick = () => {
+    if(confirm('Delete this quotation?')){ State.quotations = State.quotations.filter(x=>x.id!==el.dataset.delQ); persist('quotations'); render(); }
+  });
+  document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
+    const q = State.quotations.find(x=>x.id===el.dataset.convert);
+    const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
+      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, pakej:q.pakej, backdrop:q.backdrop,
+      pakejTambahan:q.addOn||'N/A', transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
+      bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
+      bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
+    q.status='Accepted'; persist('quotations');
+    openForm('booking', nb);
+  });
+
+  // Staff
+  const btnNewS = $('btn-new-staff'); if(btnNewS) btnNewS.onclick = () => openForm('staff', {...emptyStaff(), _isNew:true});
+  document.querySelectorAll('[data-edit-s]').forEach(el => el.onclick = () => {
+    const s = State.staff.find(x=>x.id===el.dataset.editS); openForm('staff', {...s});
+  });
+  document.querySelectorAll('[data-del-s]').forEach(el => el.onclick = () => {
+    if(confirm('Delete this staff allowance entry?')){ State.staff = State.staff.filter(x=>x.id!==el.dataset.delS); persist('staff'); render(); }
+  });
+
+  // Docs
+  document.querySelectorAll('[data-doc]').forEach(el => el.onclick = () => {
+    const [kind,id] = el.dataset.doc.split(':');
+    const obj = kind==='booking' ? State.bookings.find(x=>x.id===id) : kind==='quotation' ? State.quotations.find(x=>x.id===id) : State.staff.find(x=>x.id===id);
+    State.docModal = { kind, obj }; render();
+  });
+
+  // Modal (form)
+  const bg = $('modal-bg');
+  if(bg){
+    $('modal-close').onclick = closeForm;
+    $('modal-cancel').onclick = closeForm;
+    bg.onclick = (e) => { if(e.target===bg) closeForm(); };
+    $('entity-form').onsubmit = submitForm;
+  }
+  // Modal (doc)
+  const dbg = $('doc-modal-bg');
+  if(dbg){
+    $('doc-modal-close').onclick = () => { State.docModal=null; render(); };
+    dbg.onclick = (e) => { if(e.target===dbg){ State.docModal=null; render(); } };
+    document.querySelectorAll('[data-pdf]').forEach(el => el.onclick = () => handlePdfAction(el.dataset.pdf));
+  }
+  // Modal (sync)
+  const sbg = $('sync-modal-bg');
+  if(sbg){
+    $('sync-close').onclick = () => { State.syncTarget=null; render(); };
+    sbg.onclick = (e) => { if(e.target===sbg){ State.syncTarget=null; render(); } };
+    $('sync-open').onclick = () => {
+      const start = $('sync-start').value, end = $('sync-end').value;
+      const b = State.syncTarget;
+      window.open(buildGCalUrl(b,start,end), '_blank', 'noopener,noreferrer');
+      State.bookings = State.bookings.map(x=> x.id===b.id ? {...x, calendarSynced:true, waktuEvent: x.waktuEvent || `${start} - ${end}`} : x);
+      persist('bookings'); State.syncTarget=null;
+      showToast('Google Calendar tab opened — click Save on that page to finish syncing.');
+      render();
+    };
+  }
+}
+function renderPreserveScroll(){ $('main').innerHTML = renderMain(); attachGlobalEvents(); }
+
+function openForm(type, data){ State.formModal = { type, data }; render(); }
+function closeForm(){ State.formModal = null; render(); }
+
+function submitForm(e){
+  e.preventDefault();
+  const { type, data } = State.formModal;
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:STAFF_FIELDS;
+  const out = { ...data };
+  meta.forEach(([key,label,t]) => { const el = $('ff-'+key); out[key] = t==='number' ? Number(el.value)||0 : el.value; });
+
+  if(type==='booking'){
+    out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
+    if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
+    const clash = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent && out.waktuEvent.trim() && x.waktuEvent.trim().toLowerCase()===out.waktuEvent.trim().toLowerCase());
+    if(clash){ showFormWarn('Double booking detected: another active booking already has this exact date and time.'); return; }
+    const sameDate = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent);
+    const wasConfirmedBefore = State.bookings.find(x=>x.id===out.id)?.bookingStatus==='Confirmed';
+    delete out._isNew;
+    const exists = State.bookings.some(x=>x.id===out.id);
+    State.bookings = exists ? State.bookings.map(x=>x.id===out.id?out:x) : [...State.bookings, out];
+    persist('bookings'); State.formModal = null;
+    showToast(sameDate ? 'Saved — note: another active booking already exists on this date.' : 'Booking saved.');
+    if(out.bookingStatus==='Confirmed' && !out.calendarSynced && !wasConfirmedBefore){
+      render(); setTimeout(()=>{ State.syncTarget = out; render(); }, 300); return;
+    }
+    render(); return;
+  }
+
+  if(type==='quotation'){
+    out.status = $('ff-status').value;
+    if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
+    delete out._isNew;
+    const exists = State.quotations.some(x=>x.id===out.id);
+    State.quotations = exists ? State.quotations.map(x=>x.id===out.id?out:x) : [...State.quotations, out];
+    persist('quotations'); State.formModal = null; showToast('Quotation saved.'); render(); return;
+  }
+
+  if(type==='staff'){
+    out.paymentStatus = $('ff-paymentStatus').value; out.paymentDate = $('ff-paymentDate').value;
+    if(!out.staffName.trim() || !out.eventDate){ showFormWarn('Staff Name and Event Date are required.'); return; }
+    delete out._isNew;
+    const exists = State.staff.some(x=>x.id===out.id);
+    State.staff = exists ? State.staff.map(x=>x.id===out.id?out:x) : [...State.staff, out];
+    persist('staff'); State.formModal = null; showToast('Staff allowance entry saved.'); render(); return;
+  }
+}
+function showFormWarn(msg){ const w=$('form-warn'), t=$('form-warn-text'); w.style.display='flex'; t.textContent=msg; }
+
+/* ======================= PDF ACTIONS ======================= */
+function handlePdfAction(action){
+  const [mode, docType] = action.split(':');
+  const { kind, obj } = State.docModal;
+  let doc, filename, waPhone, waName;
+  if(kind==='booking'){
+    if(docType==='Booking Summary'){ doc = buildBookingSummaryPDF(obj); filename = `booking-summary-${obj.namaClient}.pdf`; }
+    else if(docType==='Invoice'){ doc = buildInvoicePDF(obj); filename = `invoice-${obj.namaClient}.pdf`; }
+    else { doc = buildReceiptPDF(obj); filename = `receipt-${obj.namaClient}.pdf`; }
+    waPhone = obj.noHpClient; waName = obj.namaClient;
+  } else if(kind==='quotation'){
+    doc = buildQuotationPDF(obj); filename = `quotation-${obj.quotationNumber}.pdf`; waPhone = obj.noHpClient; waName = obj.namaClient;
+  } else {
+    doc = buildStaffPDF(obj); filename = `staff-allowance-${obj.staffName}.pdf`; waPhone = obj.staffPhone; waName = obj.staffName;
+  }
+  filename = filename.replace(/[^a-z0-9.\- ]/gi,'').replace(/\s+/g,'-').toLowerCase();
+
+  if(mode==='download'){ doc.save(filename); showToast('PDF downloaded.'); }
+  else if(mode==='print'){ doc.autoPrint(); window.open(doc.output('bloburl'), '_blank'); }
+  else if(mode==='wa'){
+    doc.save(filename);
+    window.open(waLink(waPhone, `Hi ${waName}, please find your ${docType} from Kerlip Photobooth attached (downloaded as ${filename}).`), '_blank');
+    showToast('PDF downloaded — attach it in the WhatsApp chat that just opened.');
+  } else if(mode==='mail'){
+    doc.save(filename);
+    const subject = encodeURIComponent(`Kerlip Photobooth — ${docType}`);
+    const body = encodeURIComponent(`Hi ${waName},\n\nPlease find attached your ${docType} from Kerlip Photobooth (downloaded as ${filename}).\n\nThank you,\nKerlip Photobooth`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    showToast('PDF downloaded — attach it to the email draft that just opened.');
+  }
+}
+
+function exportBookingsExcel(){
+  const rows = State.bookings.map(b => ({
+    'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
+    'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
+    'Pakej': b.pakej, 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Waktu Event': b.waktuEvent,
+    'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
+    'Balance (RM)': num(b.jumlahKeseluruhan)-num(b.bayaranDeposit), 'Payment Status': b.paymentStatus,
+    'Booking Status': b.bookingStatus, 'GCal Synced': b.calendarSynced?'Yes':'No',
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Bookings'); XLSX.writeFile(wb, `kerlip-bookings-${todayISO()}.xlsx`);
+  showToast('Excel file downloaded.');
+}
+function exportBookingsListPDF(){
+  const doc = new window.jspdf.jsPDF({orientation:'landscape'});
+  docHeader(doc,'Booking List','ALL-'+todayISO().replace(/-/g,''));
+  doc.autoTable({ startY:30, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:8},
+    styles:{fontSize:8,cellPadding:2.5}, margin:{left:12,right:12},
+    head:[['Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
+    body: State.bookings.map(b=>[displayDate(b.tarikhEvent), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
+      rmVal(b.jumlahKeseluruhan), rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)), b.paymentStatus, b.bookingStatus]),
+  });
+  doc.save(`kerlip-bookings-${todayISO()}.pdf`);
+  showToast('PDF list downloaded.');
+}
+
+/* ======================= BOOT ======================= */
+loadAll().then(render);
+</script>
+</body>
+</html>
