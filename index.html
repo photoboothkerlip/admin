@@ -290,110 +290,223 @@ function footerNote(doc){
 
 function buildQuotationPDF(q){
   const doc = new window.jspdf.jsPDF();
-  docHeader(doc,'Quotation',q.quotationNumber);
-  let y = 34;
-  y = docSectionTitle(doc,'Client & Event Details',y);
-  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2},
-    body:[
-      ['Client Name', q.namaClient||'—','Quotation Date', displayDate(q.quotationDate)],
-      ['Client Phone', q.noHpClient||'—','Status', q.status],
-      ['Event Date', displayDate(q.tarikhEvent),'Event Type', q.jenisEvent||'—'],
-      ['Event Location', q.lokasiEvent||'—','', ''],
-    ], columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}}, margin:{left:16,right:16},
-  });
-  y = doc.lastAutoTable.finalY + 8;
-  y = docSectionTitle(doc,'Package & Pricing',y);
-  doc.autoTable({ startY:y, theme:'grid',
-    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
-    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
-    head:[['Item','Description','Amount (RM)']],
-    body:[
-      ['Package', q.pakej||'—', num(q.pakejPrice).toFixed(2)],
-      ['Backdrop', q.backdrop||'—', '—'],
-      ['Add-On', q.addOn||'N/A', num(q.addOnPrice).toFixed(2)],
-      ['Transportation','—', num(q.transportCharges).toFixed(2)],
-      ['Discount','—', '-'+num(q.discount).toFixed(2)],
-      ['SST / Tax ('+num(q.sstPercent)+'%)','—', quotationTax(q).toFixed(2)],
-    ],
-  });
-  y = doc.lastAutoTable.finalY + 6;
-  doc.setFontSize(10); doc.setFont('helvetica','bold');
-  doc.text('Total Amount:', 130, y); doc.text(rmVal(quotationGrandTotal(q)), 194, y, {align:'right'});
-  y += 6; doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  doc.text('Deposit Required:', 130, y); doc.text(rmVal(q.depositRequired), 194, y, {align:'right'});
-  y += 6; doc.setFont('helvetica','bold');
-  doc.text('Balance:', 130, y); doc.text(rmVal(quotationGrandTotal(q)-num(q.depositRequired)), 194, y, {align:'right'});
-  y += 12;
-  y = termsBlock(doc,y);
-  y = signatureBlock(doc,y);
-  footerNote(doc);
-  return doc;
-}
 
-function buildBookingSummaryPDF(b){
-  const doc = new window.jspdf.jsPDF();
-  const docNo = 'BKG-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
-  docHeader(doc,'Booking Summary',docNo);
-  let y = 34;
-  y = docSectionTitle(doc,'Client & Event Details',y);
-  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9,cellPadding:1.2}, margin:{left:16,right:16},
-    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},2:{fontStyle:'bold',textColor:[138,129,114]}},
-    body:[
-      ['Client Name', b.namaClient||'—','Booking Status', b.bookingStatus],
-      ['Client Phone', b.noHpClient||'—','Payment Status', b.paymentStatus],
-      ['Event Date', displayDate(b.tarikhEvent),'Event Type', b.jenisEvent||'—'],
-      ['Event Time', b.waktuEvent||'TBC','Event Location', b.lokasiEvent||'—'],
-      ['Contact Person', b.namaCP||'—','Contact Person Phone', b.noHpCP||'—'],
-    ]});
-  y = doc.lastAutoTable.finalY + 8;
-  y = docSectionTitle(doc,'Package Details',y);
-  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
-    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
-    head:[['Item','Detail']],
-    body:[['Package', b.pakej||'—'],['Backdrop', b.backdrop||'—'],['Add-On', b.pakejTambahan||'N/A'],
-      ['Transportation Charges', rm(b.transportCharges)]],
-  });
-  y = doc.lastAutoTable.finalY + 8;
-  y = docSectionTitle(doc,'Payment Summary',y);
-  const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
-  doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
-    body:[['Total Amount', rmVal(b.jumlahKeseluruhan)],['Deposit Paid', rmVal(b.bayaranDeposit)],
-      ['Balance Due', rmVal(bal)]],
-    columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},1:{halign:'right',fontStyle:'bold'}}});
-  y = doc.lastAutoTable.finalY + 10;
-  y = termsBlock(doc,y);
-  y = signatureBlock(doc,y);
-  footerNote(doc);
-  return doc;
-}
+  const pageW = 210;
+  const gold = [176,138,62];
+  const dark = [28,24,21];
+  const light = [250,248,244];
+  const muted = [110,105,96];
 
-function buildInvoicePDF(b){
-  const doc = new window.jspdf.jsPDF();
-  const docNo = 'INV-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
-  docHeader(doc,'Invoice',docNo);
-  let y = 34;
-  y = docSectionTitle(doc,'Bill To',y);
-  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)],['Location',b.lokasiEvent]],16,y,90);
-  y += 2;
-  y = docSectionTitle(doc,'Charges',y);
-  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
-    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
-    head:[['Description','Amount (RM)']],
-    body:[[b.pakej||'Photobooth Package', num(b.jumlahKeseluruhan-num(b.transportCharges)).toFixed(2)],
-      ['Transportation Charges', num(b.transportCharges).toFixed(2)]],
-    foot:[['Total Due', num(b.jumlahKeseluruhan).toFixed(2)]],
-    footStyles:{fillColor:[239,228,196],textColor:[28,24,21],fontStyle:'bold'},
-  });
-  y = doc.lastAutoTable.finalY + 6;
-  doc.setFontSize(9);
-  doc.text('Deposit Paid: '+rmVal(b.bayaranDeposit),16,y); y+=5;
+  const total = quotationGrandTotal(q);
+  const deposit = num(q.depositRequired);
+  const balance = total - deposit;
+
+  // Header
+  doc.setFillColor(...dark);
+  doc.rect(0,0,pageW,38,'F');
+
+  doc.setFillColor(255,255,255);
+  doc.circle(22,19,10,'F');
+  doc.setTextColor(...gold);
   doc.setFont('helvetica','bold');
-  doc.text('Balance Due: '+rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)),16,y); doc.setFont('helvetica','normal');
+  doc.setFontSize(12);
+  doc.text('K',22,23,{align:'center'});
+
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18);
+  doc.text('KERLIP PHOTOBOOTH',38,17);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text('Premium Photobooth Experiences',38,23);
+  doc.text('Kuala Lumpur & Selangor, Malaysia',38,28);
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(15);
+  doc.text('QUOTATION',190,16,{align:'right'});
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.text(`No: ${q.quotationNumber}`,190,23,{align:'right'});
+  doc.text(`Date: ${displayDate(q.quotationDate)}`,190,28,{align:'right'});
+  doc.text(`Status: ${q.status}`,190,33,{align:'right'});
+
+  // Client & Event Cards
+  let y = 50;
+
+  doc.setFillColor(...light);
+  doc.roundedRect(14,y,86,43,3,3,'F');
+  doc.roundedRect(110,y,86,43,3,3,'F');
+
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('CLIENT DETAILS',20,y+10);
+  doc.text('EVENT DETAILS',116,y+10);
+
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+
+  doc.text('Client Name',20,y+20);
+  doc.text('Phone Number',20,y+31);
+
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica','bold');
+  doc.text(q.namaClient || '—',20,y+25);
+  doc.text(q.noHpClient || '—',20,y+36);
+
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica','normal');
+  doc.text('Event Date',116,y+20);
+  doc.text('Event Type',116,y+31);
+
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica','bold');
+  doc.text(displayDate(q.tarikhEvent),116,y+25);
+  doc.text(q.jenisEvent || '—',116,y+36);
+
+  y = 105;
+
+  // Package Title
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('PACKAGE & PRICING',14,y);
+  doc.setDrawColor(...gold);
+  doc.line(14,y+3,196,y+3);
+
   y += 10;
-  y = termsBlock(doc,y);
-  y = signatureBlock(doc,y);
-  footerNote(doc);
+
+  // Pricing Table
+  doc.autoTable({
+    startY:y,
+    margin:{left:14,right:14},
+    theme:'grid',
+    head:[['Item','Description','Qty','Amount']],
+    body:[
+      ['Photobooth Package',q.pakej || '—','1',rmVal(q.pakejPrice)],
+      ['Backdrop',q.backdrop || 'Standard / Selected','1','Included'],
+      ['Add-On',q.addOn || 'N/A','1',rmVal(q.addOnPrice)],
+      ['Transportation','Event logistics / delivery','1',rmVal(q.transportCharges)],
+      ['Discount','Special discount','—','-' + rmVal(q.discount)],
+      [`SST / Tax (${num(q.sstPercent)}%)`,'If applicable','—',rmVal(quotationTax(q))]
+    ],
+    headStyles:{
+      fillColor:dark,
+      textColor:[255,255,255],
+      fontSize:9,
+      fontStyle:'bold'
+    },
+    styles:{
+      fontSize:8.7,
+      cellPadding:3,
+      lineColor:[230,225,215],
+      lineWidth:0.2
+    },
+    columnStyles:{
+      0:{cellWidth:45,fontStyle:'bold'},
+      1:{cellWidth:75},
+      2:{cellWidth:20,halign:'center'},
+      3:{cellWidth:40,halign:'right'}
+    }
+  });
+
+  y = doc.lastAutoTable.finalY + 8;
+
+  // Total Summary Box
+  doc.setFillColor(...dark);
+  doc.roundedRect(112,y,84,34,3,3,'F');
+
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text('Total Amount',118,y+9);
+  doc.text('Deposit Required',118,y+18);
+  doc.text('Balance Due',118,y+27);
+
+  doc.setFont('helvetica','bold');
+  doc.text(rmVal(total),190,y+9,{align:'right'});
+  doc.text(rmVal(deposit),190,y+18,{align:'right'});
+
+  doc.setTextColor(...gold);
+  doc.setFontSize(10);
+  doc.text(rmVal(balance),190,y+28,{align:'right'});
+
+  y += 48;
+
+  // Payment Details
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('PAYMENT DETAILS',14,y);
+  doc.setDrawColor(...gold);
+  doc.line(14,y+3,196,y+3);
+
+  y += 10;
+
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text('Bank Name:',14,y);
+  doc.text('Account Name:',14,y+7);
+  doc.text('Account Number:',14,y+14);
+  doc.text('Payment Reference:',14,y+21);
+
+  doc.setFont('helvetica','bold');
+  doc.text('Maybank / Your Bank Name',55,y);
+  doc.text('Kerlip Photobooth',55,y+7);
+  doc.text('XXXXXXXXXXXX',55,y+14);
+  doc.text(q.quotationNumber,55,y+21);
+
+  y += 36;
+
+  // Terms
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('TERMS & CONDITIONS',14,y);
+  doc.setDrawColor(...gold);
+  doc.line(14,y+3,196,y+3);
+
+  y += 9;
+
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+
+  const terms = [
+    '1. Booking is confirmed upon receipt of deposit payment.',
+    '2. Balance payment must be made before or on the event day.',
+    '3. Any changes to date, time, or location must be informed at least 7 days before the event.',
+    '4. Transportation charges may apply for locations outside the agreed coverage area.',
+    '5. This quotation is valid based on the package and scope stated above.'
+  ];
+
+  doc.text(terms,14,y);
+
+  y += 34;
+
+  // Signature
+  doc.setDrawColor(...dark);
+  doc.line(14,y,88,y);
+  doc.line(122,y,196,y);
+
+  doc.setTextColor(...muted);
+  doc.setFontSize(8);
+  doc.text('Client Signature',14,y+6);
+  doc.text('Kerlip Photobooth Representative',122,y+6);
+
+  // Footer
+  doc.setFillColor(...light);
+  doc.rect(0,285,pageW,12,'F');
+
+  doc.setTextColor(...muted);
+  doc.setFontSize(7.5);
+  doc.text('Thank you for choosing Kerlip Photobooth — Creating unforgettable memories, one photo at a time.',105,292,{align:'center'});
+
   return doc;
+}
 }
 
 function buildReceiptPDF(b){
