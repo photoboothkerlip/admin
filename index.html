@@ -55,7 +55,26 @@ td{padding:10px 12px;border-top:1px solid var(--line);white-space:nowrap;}
 <body>
 <div id="app"></div>
 
-<script>
+<script type="module">
+/* ======================= FIREBASE SETUP ======================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDR1LP7WRDyOHtvej-Z1ogQOS9bRZVMZD4",
+  authDomain: "kerlip-photobooh-booking.firebaseapp.com",
+  projectId: "kerlip-photobooh-booking",
+  storageBucket: "kerlip-photobooh-booking.firebasestorage.app",
+  messagingSenderId: "855153937546",
+  appId: "1:855153937546:web:4d4f450b2f02034edf3173",
+  measurementId: "G-M3T361ZV4H"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const appDataRef = doc(db, "kerlipApp", "mainData");
+console.log("Firebase Connected");
+
 /* ======================= ICONS ======================= */
 const I = {
   aperture:(s=32)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity=".5"/>${[0,60,120,180,240,300].map(a=>`<path d="M50 50 L50 8 A42 42 0 0 1 78 22 Z" fill="var(--gold)" opacity=".85" transform="rotate(${a} 50 50)"/>`).join('')}<circle cx="50" cy="50" r="16" fill="var(--paper)" stroke="var(--gold)" stroke-width="1.5"/><text x="50" y="56" text-anchor="middle" font-size="16" font-family="Playfair Display, serif" fill="var(--ink)" font-weight="700">K</text></svg>`,
@@ -113,17 +132,47 @@ const State = {
 const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff' };
 
 async function loadAll(){
-  for(const [key, storeKey] of [['bookings',K.bookings],['quotations',K.quotations],['staff',K.staff]]){
-    try{
-      const res = await window.storage.get(storeKey, false);
-      State[key] = res && res.value ? JSON.parse(res.value) : [];
-    }catch(e){ State[key] = []; }
+  try{
+    const snap = await getDoc(appDataRef);
+    if(snap.exists()){
+      const data = snap.data();
+      State.bookings = Array.isArray(data.bookings) ? data.bookings : [];
+      State.quotations = Array.isArray(data.quotations) ? data.quotations : [];
+      State.staff = Array.isArray(data.staff) ? data.staff : [];
+    } else {
+      State.bookings = [sampleBooking()];
+      State.quotations = [];
+      State.staff = [];
+      await setDoc(appDataRef, {
+        bookings: State.bookings,
+        quotations: State.quotations,
+        staff: State.staff,
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }catch(e){
+    console.error("Firebase load failed:", e);
+    State.bookings = [sampleBooking()];
+    State.quotations = [];
+    State.staff = [];
+    showToast("Firebase load failed. Check Firestore rules.");
   }
-  if(State.bookings.length === 0) State.bookings = [sampleBooking()];
   State.loading = false;
 }
+
 async function persist(key){
-  try{ await window.storage.set(K[key], JSON.stringify(State[key]), false); }catch(e){ console.error('save failed', e); }
+  try{
+    await setDoc(appDataRef, {
+      bookings: State.bookings,
+      quotations: State.quotations,
+      staff: State.staff,
+      updatedAt: new Date().toISOString()
+    }, { merge:true });
+    console.log("Saved to Firebase:", key);
+  }catch(e){
+    console.error("Firebase save failed:", e);
+    alert("Data not saved to Firebase. Please check Firestore Rules.");
+  }
 }
 function showToast(msg){ State.toast = msg; render(); setTimeout(()=>{ State.toast=null; render(); }, 3200); }
 
@@ -1067,33 +1116,6 @@ function exportBookingsListPDF(){
 
 /* ======================= BOOT ======================= */
 loadAll().then(render);
-</script>
-  <script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-
-import {
-    getFirestore
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
-const firebaseConfig = {
-
-     apiKey: "AIzaSyDR1LP7WRDyOHtvej-Z1ogQOS9bRZVMZD4",
-    authDomain: "kerlip-photobooh-booking.firebaseapp.com",
-    projectId: "kerlip-photobooh-booking",
-    storageBucket: "kerlip-photobooh-booking.firebasestorage.app",
-    messagingSenderId: "855153937546",
-    appId: "1:855153937546:web:4d4f450b2f02034edf3173",
-    measurementId: "G-M3T361ZV4H"
-
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
-
-console.log("Firebase Connected");
-
 </script>
 </body>
 </html>
