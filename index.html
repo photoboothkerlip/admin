@@ -8,48 +8,479 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root{
-  --ink:#1C1815; --paper:#FFFDF9; --surface:#F7F3EA; --surfaceAlt:#FBF8F2;
-  --line:#E7DFCC; --gold:#B08A3E; --goldDeep:#8C6C2E; --goldSoft:#EFE4C4;
-  --success:#3F7D5C; --successSoft:#E4F0E9; --danger:#B3452C; --dangerSoft:#F6E5DF; --muted:#8A8172;
+  --ink:#F8FAFC;
+  --paper:#0B1626;
+  --surface:#242B3D;
+  --surfaceAlt:#111C2E;
+  --line:rgba(148,163,184,.16);
+  --gold:#8B5CF6;
+  --goldDeep:#C084FC;
+  --goldSoft:rgba(139,92,246,.18);
+  --accent:#FF8A1F;
+  --accentSoft:rgba(255,138,31,.16);
+  --success:#2DD4BF;
+  --successSoft:rgba(45,212,191,.13);
+  --warning:#F59E0B;
+  --warningSoft:rgba(245,158,11,.15);
+  --danger:#FB7185;
+  --dangerSoft:rgba(251,113,133,.14);
+  --muted:#94A3B8;
+  --shadow:0 22px 60px rgba(0,0,0,.28);
+  --shadowHover:0 30px 90px rgba(0,0,0,.42);
+  --glow:0 0 30px rgba(139,92,246,.28);
+  --radius:28px;
+  --radiusSm:16px;
+  --headerH:72px;
+  --sidebarW:260px;
 }
 *{box-sizing:border-box;}
-body{margin:0;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  font-family:'Inter',sans-serif;
+  background:
+    radial-gradient(circle at 12% 10%,rgba(139,92,246,.24),transparent 28%),
+    radial-gradient(circle at 84% 16%,rgba(255,138,31,.16),transparent 25%),
+    linear-gradient(135deg,#283146 0%,#1F293D 40%,#111827 100%);
+  color:var(--ink);
+  font-size:14px;
+  -webkit-font-smoothing:antialiased;
+}
 .serif{font-family:'Playfair Display',serif;}
-button{font-family:inherit;cursor:pointer;}
+button{font-family:inherit;cursor:pointer;transition:all .2s cubic-bezier(.2,.8,.2,1);}
 input,select,textarea{font-family:inherit;}
 a{color:inherit;text-decoration:none;}
-::-webkit-scrollbar{height:8px;width:8px;}
-::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+::-webkit-scrollbar{height:10px;width:10px;}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.04);}
+::-webkit-scrollbar-thumb{background:rgba(148,163,184,.28);border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
+::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,.56);background-clip:padding-box;}
 
-.btn{display:inline-flex;align-items:center;gap:6px;border-radius:12px;padding:9px 14px;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--paper);color:var(--ink);white-space:nowrap;}
-.btn:hover{background:var(--surfaceAlt);}
-.btn-dark{background:var(--ink);color:var(--paper);border-color:var(--ink);}
-.btn-dark:hover{opacity:.9;}
-.btn-ghost{border:none;background:transparent;padding:6px;border-radius:10px;}
-.btn-ghost:hover{background:rgba(0,0,0,.05);}
-.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;}
-.input{width:100%;border:1px solid var(--line);background:var(--surfaceAlt);border-radius:12px;padding:9px 12px;font-size:13px;outline:none;}
-.label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.03em;}
-.field{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
-@media(max-width:640px){.grid2{grid-template-columns:1fr;}}
-table{width:100%;min-width:1350px;border-collapse:collapse;font-size:14px;table-layout:auto;}
-th{text-align:left;padding:14px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface);white-space:nowrap;}
-td{padding:16px 18px;border-top:1px solid var(--line);white-space:nowrap;}
-.modal-bg{position:fixed;inset:0;background:rgba(28,24,21,.5);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;z-index:60;}
-.modal{background:var(--paper);border-radius:18px;width:100%;max-width:640px;margin:24px 0;}
-.navitem{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:600;width:100%;text-align:left;border:none;background:transparent;color:var(--ink);}
-.navitem.active{background:var(--ink);color:var(--paper);}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:100;}
-.stat{padding:16px;display:flex;flex-direction:column;gap:8px;}
-.stat .top{display:flex;justify-content:space-between;align-items:center;}
-.stat .val{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;}
-.iconwrap{width:32px;height:32px;border-radius:999px;background:var(--goldSoft);display:flex;align-items:center;justify-content:center;}
-.dochelp{font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px;background:var(--surface);padding:10px 12px;border-radius:10px;}
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:999px;padding:11px 16px;font-size:13px;font-weight:750;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.72);color:var(--ink);white-space:nowrap;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 24px rgba(0,0,0,.14);
+  backdrop-filter:blur(18px);
+}
+.btn svg{filter:drop-shadow(0 0 10px rgba(139,92,246,.2));}
+.btn:hover{background:rgba(30,41,59,.92);transform:translateY(-2px);box-shadow:var(--glow),0 16px 34px rgba(0,0,0,.28);border-color:rgba(139,92,246,.38);}
+.btn-dark{background:linear-gradient(135deg,#7C3AED,#8B5CF6 55%,#A855F7);color:white;border:0;box-shadow:0 14px 34px rgba(139,92,246,.34);}
+.btn-dark:hover{background:linear-gradient(135deg,#8B5CF6,#A855F7 55%,#C084FC);box-shadow:0 18px 48px rgba(139,92,246,.46);}
+.btn-ghost{border:none;background:transparent;padding:9px;border-radius:14px;color:var(--muted);}
+.btn-ghost:hover{background:rgba(139,92,246,.14);color:#fff;box-shadow:0 0 22px rgba(139,92,246,.18);}
+
+/* Foundation */
+.card{
+  background:linear-gradient(180deg,rgba(15,23,42,.88),rgba(11,22,38,.88));
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(18px);
+}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:850;letter-spacing:.01em;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+.input{
+  width:100%;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.72);color:var(--ink);
+  border-radius:16px;padding:12px 14px;font-size:13px;outline:none;transition:all .18s ease;
+}
+.input::placeholder{color:rgba(148,163,184,.72);}
+.input:focus{border-color:rgba(139,92,246,.7);box-shadow:0 0 0 4px rgba(139,92,246,.18),var(--glow);background:rgba(15,23,42,.95);}
+select.input option{background:#0B1626;color:#fff;}
+.label{font-size:10.5px;font-weight:850;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.07em;}
+.field{display:flex;flex-direction:column;gap:2px;margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;}
+
+/* Layout */
+.app-shell{min-height:100vh;display:grid;grid-template-columns:var(--sidebarW) minmax(0,1fr);}
+.topbar{
+  position:sticky;top:0;z-index:30;height:var(--headerH);display:flex;align-items:center;justify-content:space-between;padding:0 30px;
+  background:rgba(11,22,38,.58);backdrop-filter:blur(22px);border-bottom:1px solid rgba(148,163,184,.13);
+}
+.sidebar{
+  position:sticky;top:0;height:100vh;padding:24px 16px;background:rgba(7,17,31,.62);backdrop-filter:blur(24px);
+  border-right:1px solid rgba(148,163,184,.13);display:flex;flex-direction:column;gap:20px;
+}
+.sidebar-brand{display:flex;align-items:center;gap:13px;padding:6px 10px 16px;}
+.sidebar-brand svg{filter:drop-shadow(0 0 18px rgba(139,92,246,.32));}
+.sidebar-brand-title{font-size:16px;font-weight:850;line-height:1.05;color:#fff;}
+.sidebar-brand-sub{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:4px;}
+.main-wrap{min-width:0;}
+.content{width:100%;max-width:1760px;margin:0 auto;padding:28px 32px 44px;}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;}
+.page-title{font-size:34px;line-height:1.05;font-weight:850;letter-spacing:-.055em;margin:0;color:#fff;text-shadow:0 10px 30px rgba(0,0,0,.28);}
+.page-subtitle{font-size:13px;color:var(--muted);margin-top:7px;}
+.global-search{display:flex;align-items:center;gap:10px;min-width:280px;max-width:460px;flex:1;background:rgba(7,17,31,.56);border:1px solid rgba(148,163,184,.16);border-radius:999px;padding:11px 15px;color:var(--muted);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 28px rgba(0,0,0,.18);backdrop-filter:blur(18px);}
+.global-search input{border:0;outline:0;background:transparent;width:100%;font-size:13px;color:#fff;}
+
+/* Navigation */
+.nav-card{border:0;background:transparent;box-shadow:none;padding:0;display:flex;flex-direction:column;gap:7px;}
+.navitem{position:relative;display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:999px;font-size:13px;font-weight:780;width:100%;text-align:left;border:none;background:transparent;color:var(--muted);}
+.navitem svg{transition:all .2s ease;}
+.navitem:hover{background:rgba(255,255,255,.055);color:#fff;transform:translateX(3px);}
+.navitem:hover svg{filter:drop-shadow(0 0 12px rgba(139,92,246,.5));}
+.navitem.active{background:linear-gradient(135deg,rgba(139,92,246,.24),rgba(11,22,38,.74));color:#fff;box-shadow:inset 4px 0 0 var(--gold),0 0 28px rgba(139,92,246,.15);}
+.navitem.active svg{color:#C084FC;stroke:currentColor;filter:drop-shadow(0 0 14px rgba(139,92,246,.6));}
+
+/* Login */
+.login-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 18% 20%,rgba(139,92,246,.32),transparent 30%),radial-gradient(circle at 80% 18%,rgba(255,138,31,.18),transparent 25%),linear-gradient(135deg,#283146,#111827);padding:18px;}
+.login-card{width:100%;max-width:430px;padding:36px;border-radius:34px;background:rgba(8,19,34,.66);backdrop-filter:blur(24px);border:1px solid rgba(148,163,184,.16);box-shadow:0 35px 110px rgba(0,0,0,.45),0 0 55px rgba(139,92,246,.12);}
+
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
+.stat{
+  position:relative;overflow:hidden;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:130px;
+  background:linear-gradient(145deg,rgba(15,23,42,.92) 0%,rgba(11,22,38,.92) 55%,rgba(55,48,163,.34) 100%);
+  transition:all .22s ease;border-color:rgba(148,163,184,.13);
+}
+.stat:hover{transform:translateY(-5px) scale(1.01);box-shadow:var(--shadowHover),0 0 35px rgba(139,92,246,.17);border-color:rgba(139,92,246,.28);}
+.stat:after{content:'';position:absolute;right:-42px;top:-42px;width:118px;height:118px;border-radius:999px;background:radial-gradient(circle,rgba(139,92,246,.32),transparent 70%);}
+.stat .top{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1;}
+.stat .val{font-family:'Inter',sans-serif;font-size:29px;font-weight:880;letter-spacing:-.055em;position:relative;z-index:1;color:#fff;}
+.iconwrap{width:40px;height:40px;border-radius:16px;background:linear-gradient(135deg,rgba(139,92,246,.24),rgba(45,212,191,.12));color:#C084FC;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(139,92,246,.16);}
+.section-kicker{font-size:12px;font-weight:850;color:#C084FC;text-transform:uppercase;letter-spacing:.09em;margin:8px 0 -2px;}
+
+/* Tables */
+.table-card{overflow:hidden;border-radius:28px;box-shadow:var(--shadow);}
+.table-scroll{overflow:auto;max-width:100%;}
+table{width:100%;min-width:1180px;border-collapse:separate;border-spacing:0;font-size:13.5px;table-layout:auto;}
+th{position:sticky;top:0;z-index:2;text-align:left;padding:16px 19px;font-size:10.5px;font-weight:850;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);background:rgba(15,23,42,.96);white-space:nowrap;border-bottom:1px solid rgba(148,163,184,.14);}
+td{padding:18px 19px;border-top:1px solid rgba(148,163,184,.10);white-space:nowrap;background:rgba(11,22,38,.78);vertical-align:middle;color:#E5E7EB;}
+tbody tr:nth-child(even) td{background:rgba(15,23,42,.78);}
+tbody tr:hover td{background:rgba(139,92,246,.10);}
+td:first-child,th:first-child{padding-left:24px;}
+td:last-child,th:last-child{padding-right:24px;}
+
+/* Modals / Drawer */
+.modal-bg{position:fixed;inset:0;background:rgba(2,6,23,.58);display:flex;align-items:stretch;justify-content:flex-end;padding:0;overflow-y:auto;z-index:60;animation:fadeIn .18s ease;backdrop-filter:blur(10px);}
+.modal{background:linear-gradient(180deg,#0B1626,#07111F);border-left:1px solid rgba(148,163,184,.16);border-radius:30px 0 0 30px;width:100%;max-width:780px;min-height:100vh;margin:0;box-shadow:-35px 0 100px rgba(0,0,0,.46);animation:slideIn .24s ease;color:#fff;}
+.dochelp{font-size:12px;color:var(--muted);line-height:1.55;margin-top:12px;background:rgba(15,23,42,.9);padding:13px 15px;border-radius:18px;border:1px solid rgba(148,163,184,.12);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#7C3AED,#8B5CF6);color:white;padding:13px 20px;border-radius:999px;font-size:13px;font-weight:750;z-index:100;box-shadow:0 20px 50px rgba(139,92,246,.34);animation:toastIn .2s ease;}
+
+/* Calendar */
+.calendar-card{padding:22px;}
+.calendar-day{aspect-ratio:1;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;transition:all .16s ease;}
+.calendar-day:hover{background:rgba(139,92,246,.12);box-shadow:0 0 22px rgba(139,92,246,.14);}
+
+/* Utility colour patches */
+[style*="background:var(--surface)"]{background:rgba(15,23,42,.72)!important;}
+[style*="background:var(--surfaceAlt)"]{background:rgba(15,23,42,.68)!important;}
+[style*="background:#fff"],[style*="background: #fff"]{background:rgba(15,23,42,.72)!important;}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideIn{from{transform:translateX(30px);opacity:.4}to{transform:translateX(0);opacity:1}}
+@keyframes toastIn{from{transform:translate(-50%,8px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+
+/* Mobile */
+@media(max-width:980px){
+  .app-shell{display:block;}
+  .sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid rgba(148,163,184,.13);padding:12px;}
+  .sidebar-brand{padding-bottom:8px;}
+  .nav-card{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
+  .content{padding:18px 14px 32px;}
+  .topbar{padding:0 14px;}
+  .global-search{display:none;}
+  .page-head{display:block;}
+  .page-title{font-size:28px;}
+  .grid2{grid-template-columns:1fr;}
+  .modal{border-radius:26px 26px 0 0;max-width:100%;min-height:auto;margin-top:40px;}
+  .modal-bg{align-items:flex-end;}
+}
+@media(max-width:640px){
+  .nav-card{grid-template-columns:1fr;}
+  .kpi-grid{grid-template-columns:1fr;}
+  table{min-width:900px;}
+}
+
+
+/* ======================= THEME TOGGLE: LIGHT / DARK ======================= */
+.theme-toggle{
+  min-width:116px;
+  position:relative;
+  overflow:hidden;
+}
+.theme-toggle .theme-icon{font-size:15px;line-height:1;filter:drop-shadow(0 0 10px rgba(139,92,246,.45));}
+.theme-toggle .theme-label{font-size:12px;font-weight:850;}
+
+body.light{
+  --ink:#2F241F;
+  --paper:#FFFDF9;
+  --surface:#F5F0EA;
+  --surfaceAlt:#FFF7F1;
+  --line:rgba(91,51,36,.12);
+  --gold:#FF6B1A;
+  --goldDeep:#5B3324;
+  --goldSoft:rgba(255,107,26,.13);
+  --accent:#C86B42;
+  --accentSoft:rgba(200,107,66,.13);
+  --success:#1F8A5B;
+  --successSoft:#EAF7F0;
+  --warning:#B7791F;
+  --warningSoft:#FFF6DE;
+  --danger:#C2412D;
+  --dangerSoft:#FFF0EC;
+  --muted:#8B7668;
+  --shadow:0 18px 45px rgba(91,51,36,.08);
+  --shadowHover:0 24px 70px rgba(91,51,36,.15);
+  --glow:0 0 0 4px rgba(255,107,26,.11);
+  background:
+    radial-gradient(circle at 14% 9%,rgba(255,107,26,.12),transparent 28%),
+    radial-gradient(circle at 88% 14%,rgba(91,51,36,.10),transparent 25%),
+    linear-gradient(135deg,#F7F1EA 0%,#FBF5EE 48%,#EFE3D7 100%);
+  color:var(--ink);
+}
+body.light .topbar{
+  background:rgba(255,253,249,.84);
+  border-bottom:1px solid rgba(91,51,36,.10);
+  box-shadow:0 12px 32px rgba(91,51,36,.06);
+}
+body.light .sidebar{
+  background:rgba(255,253,249,.84);
+  border-right:1px solid rgba(91,51,36,.10);
+  box-shadow:18px 0 45px rgba(91,51,36,.05);
+}
+body.light .sidebar-brand-title,
+body.light .page-title{color:#2F241F;text-shadow:none;}
+body.light .sidebar-brand-sub,
+body.light .page-subtitle{color:#8B7668;}
+body.light .card{
+  background:rgba(255,253,249,.92);
+  border:1px solid rgba(91,51,36,.10);
+  box-shadow:var(--shadow);
+}
+body.light .stat{
+  background:
+    linear-gradient(145deg,rgba(255,253,249,.98) 0%,rgba(255,247,241,.96) 58%,rgba(255,107,26,.10) 100%);
+  border-color:rgba(91,51,36,.10);
+}
+body.light .stat:after{background:radial-gradient(circle,rgba(255,107,26,.18),transparent 70%);}
+body.light .stat:hover{border-color:rgba(255,107,26,.30);box-shadow:var(--shadowHover),0 0 0 4px rgba(255,107,26,.06);}
+body.light .stat .val{color:#2F241F;text-shadow:none;}
+body.light .section-kicker{color:#5B3324;}
+body.light .btn{
+  background:rgba(255,253,249,.9);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.13);
+  box-shadow:0 10px 22px rgba(91,51,36,.06),inset 0 1px 0 rgba(255,255,255,.95);
+}
+body.light .btn:hover{
+  background:#FFFFFF;
+  border-color:rgba(255,107,26,.38);
+  box-shadow:0 16px 34px rgba(91,51,36,.10),0 0 0 4px rgba(255,107,26,.09);
+}
+body.light .btn-dark{
+  background:linear-gradient(135deg,#5B3324,#6B3F2E 58%,#FF6B1A);
+  color:#fff;
+  border:0;
+  box-shadow:0 16px 34px rgba(91,51,36,.20);
+}
+body.light .btn-dark:hover{box-shadow:0 20px 46px rgba(255,107,26,.24);}
+body.light .btn-ghost{color:#8B7668;}
+body.light .btn-ghost:hover{background:rgba(255,107,26,.11);color:#FF6B1A;}
+body.light .input,
+body.light .global-search{
+  background:rgba(255,253,249,.9);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.12);
+  box-shadow:0 10px 22px rgba(91,51,36,.04),inset 0 1px 0 rgba(255,255,255,.9);
+}
+body.light .global-search input{color:#2F241F;}
+body.light .input::placeholder{color:#B29B8B;}
+body.light .input:focus{border-color:rgba(255,107,26,.58);box-shadow:0 0 0 4px rgba(255,107,26,.12),0 12px 26px rgba(91,51,36,.07);background:#fff;}
+body.light select.input option{background:#FFFFFF;color:#2F241F;}
+body.light th{
+  background:#F1E7DD;
+  color:#8B7668;
+  border-bottom:1px solid rgba(91,51,36,.10);
+}
+body.light td{
+  background:#FFFDF9;
+  color:#2F241F;
+  border-top:1px solid rgba(91,51,36,.08);
+}
+body.light tbody tr:nth-child(even) td{background:#FFF7F1;}
+body.light tbody tr:hover td{background:#FCEBDD;}
+body.light .table-wrap,
+body.light .card[style*="overflow-x:auto"]{background:rgba(255,253,249,.92);}
+body.light .navitem{color:#6E5A4D;}
+body.light .navitem:hover{background:rgba(255,107,26,.10);color:#5B3324;}
+body.light .navitem.active{
+  background:linear-gradient(90deg,rgba(255,107,26,.15),rgba(255,253,249,.9));
+  color:#5B3324;
+  box-shadow:inset 4px 0 0 #FF6B1A,0 12px 28px rgba(91,51,36,.05);
+}
+body.light .navitem.active svg{color:#FF6B1A;filter:drop-shadow(0 0 10px rgba(255,107,26,.25));}
+body.light .modal-bg{background:rgba(91,51,36,.28);}
+body.light .modal{
+  background:rgba(255,253,249,.98);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.10);
+  box-shadow:0 30px 90px rgba(91,51,36,.22);
+}
+body.light .toast{
+  background:linear-gradient(135deg,#5B3324,#FF6B1A);
+  color:#fff;
+  box-shadow:0 18px 45px rgba(91,51,36,.22);
+}
+body.light .dochelp{background:#FFF7F1;color:#8B7668;border:1px solid rgba(91,51,36,.08);}
+body.light .iconwrap{background:rgba(255,107,26,.13);color:#FF6B1A;}
+body.light .badge{box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
+body.light .login-bg{background:linear-gradient(135deg,#F7F1EA,#EFE3D7);}
+body.light .login-card{background:rgba(255,253,249,.9);border:1px solid rgba(91,51,36,.10);box-shadow:0 35px 90px rgba(91,51,36,.16);}
+body.light ::-webkit-scrollbar-track{background:rgba(91,51,36,.04);}
+body.light ::-webkit-scrollbar-thumb{background:rgba(91,51,36,.18);border:2px solid transparent;background-clip:padding-box;}
+body.light ::-webkit-scrollbar-thumb:hover{background:rgba(255,107,26,.52);background-clip:padding-box;}
+@media(max-width:820px){.theme-toggle{min-width:auto}.theme-toggle .theme-label{display:none}}
+
+
+
+/* ======================= PREMIUM UPCOMING EVENTS ======================= */
+.upcoming-panel{
+  padding:22px;
+  overflow:hidden;
+}
+.upcoming-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:18px;
+  font-size:15px;
+  font-weight:850;
+  letter-spacing:-.02em;
+}
+.upcoming-head svg{color:var(--gold);filter:drop-shadow(0 0 12px rgba(139,92,246,.35));}
+.upcoming-list{display:flex;flex-direction:column;gap:14px;}
+.upcoming-empty{
+  padding:18px;
+  border-radius:18px;
+  background:rgba(255,255,255,.06);
+  color:var(--muted);
+  border:1px solid var(--line);
+  font-size:13px;
+}
+.upcoming-card{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:20px 22px;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(135deg,rgba(13,24,43,.96),rgba(17,28,49,.90));
+  box-shadow:0 18px 45px rgba(0,0,0,.18);
+  overflow:hidden;
+  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+}
+.upcoming-card:before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:6px;
+  background:var(--event-accent);
+  box-shadow:0 0 30px var(--event-glow);
+}
+.upcoming-card:after{
+  content:"";
+  position:absolute;
+  inset:-40% -20% auto auto;
+  width:200px;height:200px;
+  background:radial-gradient(circle,var(--event-glow),transparent 68%);
+  opacity:.65;
+  pointer-events:none;
+}
+.upcoming-card:hover{transform:translateY(-2px);box-shadow:0 24px 60px rgba(0,0,0,.25);border-color:var(--event-border);}
+.event-left{display:flex;align-items:center;gap:18px;min-width:0;position:relative;z-index:1;}
+.event-icon{
+  width:58px;height:58px;border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--event-soft);
+  color:var(--event-accent);
+  flex-shrink:0;
+}
+.event-icon svg{width:28px;height:28px;stroke-width:2.2;}
+.event-copy{min-width:0;}
+.event-title{
+  font-size:17px;
+  line-height:1.25;
+  font-weight:850;
+  color:#F8FAFC;
+  letter-spacing:-.035em;
+  text-rendering:geometricPrecision;
+  -webkit-font-smoothing:antialiased;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:480px;
+}
+.event-meta{
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  font-size:13px;
+  color:#AEB7C5;
+  font-weight:600;
+}
+.event-meta svg{width:15px;height:15px;color:var(--event-accent);}
+.event-dot{opacity:.45;}
+.event-status{
+  position:relative;z-index:1;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:10px 16px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:850;
+  color:#0F8A55;
+  background:#EAF8F1;
+  border:1px solid rgba(31,138,91,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 10px 24px rgba(0,0,0,.08);
+  white-space:nowrap;
+}
+.event-status svg{width:16px;height:16px;}
+.event-orange{--event-accent:#FF6B1A;--event-soft:rgba(255,107,26,.14);--event-glow:rgba(255,107,26,.22);--event-border:rgba(255,107,26,.38);}
+.event-gold{--event-accent:#F5A400;--event-soft:rgba(245,164,0,.14);--event-glow:rgba(245,164,0,.22);--event-border:rgba(245,164,0,.35);}
+.event-green{--event-accent:#2FA66A;--event-soft:rgba(47,166,106,.14);--event-glow:rgba(47,166,106,.20);--event-border:rgba(47,166,106,.35);}
+.event-blue{--event-accent:#4F8CFF;--event-soft:rgba(79,140,255,.14);--event-glow:rgba(79,140,255,.20);--event-border:rgba(79,140,255,.35);}
+.event-purple{--event-accent:#8B5CF6;--event-soft:rgba(139,92,246,.14);--event-glow:rgba(139,92,246,.24);--event-border:rgba(139,92,246,.38);}
+body.light .upcoming-panel{
+  background:rgba(255,253,249,.94);
+}
+body.light .upcoming-head{color:#2F1F17;}
+body.light .upcoming-head svg{color:#FF6B1A;filter:none;}
+body.light .upcoming-empty{background:#FFF7F1;color:#8B7668;border-color:rgba(91,51,36,.08);}
+body.light .upcoming-card{
+  background:linear-gradient(135deg,#FFFDF9 0%,#FFF7F1 100%);
+  border:1px solid var(--event-border);
+  box-shadow:0 14px 38px rgba(91,51,36,.08);
+}
+body.light .upcoming-card:after{opacity:.55;}
+body.light .upcoming-card:hover{box-shadow:0 22px 54px rgba(91,51,36,.13);}
+body.light .event-title{
+  color:#2F1F17;
+  text-shadow:none;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+body.light .event-meta{color:#6E6258;}
+body.light .event-icon{background:var(--event-soft);}
+body.light .event-status{
+  color:#1F8A5B;
+  background:#EAF8F1;
+  border-color:rgba(31,138,91,.16);
+  box-shadow:0 8px 20px rgba(31,138,91,.08),inset 0 1px 0 rgba(255,255,255,.9);
+}
+@media(max-width:720px){
+  .upcoming-card{align-items:flex-start;flex-direction:column;padding:18px;}
+  .event-left{align-items:flex-start;}
+  .event-title{white-space:normal;max-width:none;font-size:16px;}
+  .event-status{align-self:flex-start;margin-left:76px;}
+}
+
 </style>
 </head>
 <body>
@@ -77,7 +508,7 @@ console.log("Firebase Connected");
 
 /* ======================= ICONS ======================= */
 const I = {
-  aperture:(s=32)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity=".5"/>${[0,60,120,180,240,300].map(a=>`<path d="M50 50 L50 8 A42 42 0 0 1 78 22 Z" fill="var(--gold)" opacity=".85" transform="rotate(${a} 50 50)"/>`).join('')}<circle cx="50" cy="50" r="16" fill="var(--paper)" stroke="var(--gold)" stroke-width="1.5"/><text x="50" y="56" text-anchor="middle" font-size="16" font-family="Playfair Display, serif" fill="var(--ink)" font-weight="700">K</text></svg>`,
+  aperture:(s=32)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none"><defs><linearGradient id="kg" x1="14" y1="10" x2="88" y2="90"><stop stop-color="#8B5CF6"/><stop offset=".52" stop-color="#C084FC"/><stop offset="1" stop-color="#FF8A1F"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect x="10" y="10" width="80" height="80" rx="28" fill="#0B1626" stroke="url(#kg)" stroke-width="3" filter="url(#glow)"/><circle cx="50" cy="50" r="21" fill="url(#kg)" opacity=".18"/><text x="50" y="58" text-anchor="middle" font-size="28" font-family="Playfair Display, serif" fill="#fff" font-weight="700">K</text></svg>`,
   search:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
   plus:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`,
   edit:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--goldDeep)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
@@ -97,6 +528,7 @@ const I = {
   quote:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c1 0 1 0 1 0Z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 3.25-2 4.25V21Z"/></svg>`,
   users:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   logout:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
+  chart:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>`,
 };
 
 /* ======================= HELPERS ======================= */
@@ -121,15 +553,16 @@ const parseTimeRange = (text) => {
 /* ======================= STATE ======================= */
 const State = {
   authed:false, view:'dashboard', loading:true,
-  bookings:[], quotations:[], staff:[],
-  formModal:null,      // {type:'booking'|'quotation'|'staff', data:{...}, isNew}
+  bookings:[], quotations:[], staff:[], expenses:[],
+  formModal:null,      // {type:'booking'|'quotation'|'staff'|'expense', data:{...}, isNew}
   docModal:null,       // {kind, obj}
   syncTarget:null,
   reportMonth: new Date().toISOString().slice(0,7),
+  accountsYear: '2026',
   toast:null,
 };
 
-const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff' };
+const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff', expenses:'kerlip:expenses' };
 
 async function loadAll(){
   try{
@@ -139,14 +572,17 @@ async function loadAll(){
       State.bookings = Array.isArray(data.bookings) ? data.bookings : [];
       State.quotations = Array.isArray(data.quotations) ? data.quotations : [];
       State.staff = Array.isArray(data.staff) ? data.staff : [];
+      State.expenses = Array.isArray(data.expenses) ? data.expenses : [];
     } else {
       State.bookings = [sampleBooking()];
       State.quotations = [];
       State.staff = [];
+      State.expenses = [];
       await setDoc(appDataRef, {
         bookings: State.bookings,
         quotations: State.quotations,
         staff: State.staff,
+        expenses: State.expenses,
         updatedAt: new Date().toISOString()
       });
     }
@@ -155,6 +591,7 @@ async function loadAll(){
     State.bookings = [sampleBooking()];
     State.quotations = [];
     State.staff = [];
+    State.expenses = [];
     showToast("Firebase load failed. Check Firestore rules.");
   }
   State.loading = false;
@@ -166,6 +603,7 @@ async function persist(key){
       bookings: State.bookings,
       quotations: State.quotations,
       staff: State.staff,
+      expenses: State.expenses,
       updatedAt: new Date().toISOString()
     }, { merge:true });
     console.log("Saved to Firebase:", key);
@@ -176,19 +614,37 @@ async function persist(key){
 }
 function showToast(msg){ State.toast = msg; render(); setTimeout(()=>{ State.toast=null; render(); }, 3200); }
 
+/* ======================= THEME MODE ======================= */
+function currentTheme(){
+  return localStorage.getItem('kerlip:theme') || 'dark';
+}
+function applyTheme(theme=currentTheme()){
+  document.body.classList.toggle('light', theme === 'light');
+  localStorage.setItem('kerlip:theme', theme);
+}
+function toggleTheme(){
+  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+  render();
+}
+function themeButtonHtml(){
+  const light = currentTheme() === 'light';
+  return `<button class="btn theme-toggle" id="btn-theme" title="Switch ${light ? 'dark' : 'light'} mode"><span class="theme-icon">${light ? '🌙' : '☀️'}</span><span class="theme-label">${light ? 'Dark' : 'Light'} Mode</span></button>`;
+}
+
+
 /* ======================= SAMPLE / EMPTY RECORDS ======================= */
 function sampleBooking(){
   return { id:uid(), bookingDate:todayISO(), jenisEvent:'Hospital Appreciation Event', namaClient:'Ms Tina',
     noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
     namaCP:'', noHpCP:'', pakej:'Pakej photobooth 3 jam', backdrop:'', pakejTambahan:'N/A', waktuEvent:'',
     transportCharges:0, jumlahKeseluruhan:1150, bayaranDeposit:0, paymentStatus:'Paid', bookingStatus:'Confirmed',
-    calendarSynced:false, quotationRef:'', createdAt:new Date().toISOString() };
+    calendarSynced:false, quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
 function emptyBooking(){
   return { id:uid(), bookingDate:todayISO(), jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
     namaCP:'', noHpCP:'', pakej:'', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
-    quotationRef:'', createdAt:new Date().toISOString() };
+    quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
 function emptyQuotation(){
   const num_ = 'QUO-' + new Date().getFullYear() + '-' + String(State.quotations.length+1).padStart(3,'0');
@@ -206,6 +662,20 @@ function quotationTax(q){ return quotationTotal(q) * num(q.sstPercent)/100; }
 function quotationGrandTotal(q){ return quotationTotal(q) + quotationTax(q); }
 function staffTotal(s){ return num(s.allowanceAmount)+num(s.transportAllowance)+num(s.mealAllowance); }
 
+/* ======================= ACCOUNT STATEMENT: CATEGORIES ======================= */
+const REVENUE_CATEGORIES = [
+  'Photobooth package sales','360 spin booth','Keychain add-on','Guest book add-on','Extra hour charges',
+  'Corporate event package','Wedding event package','Convocation / school event package','Other income',
+];
+const OPEX_CATEGORIES = [
+  'Manpower / assistant salary','Event crew allowance','Petrol / fuel','Toll fee','Parking fee',
+  'Printer media / ink / ribbon','Photo paper','Keychain stock','Guest book cost','Props replacement',
+  'Backdrop cleaning / replacement','Marketing ads','Canva / design tools','Website / domain / hosting',
+  'Phone / internet','Repairs and maintenance','Transport / delivery cost','Meals during event',
+  'Commission / referral fee','Bank charges','Accounting / admin cost','Miscellaneous expenses',
+];
+const PAYMENT_METHODS = ['Bank Transfer','Cash','DuitNow','Card','E-Wallet','Other'];
+
 /* ======================= FIELD META (drives form rendering) ======================= */
 const BOOKING_FIELDS = [
   ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','text'],
@@ -216,6 +686,7 @@ const BOOKING_FIELDS = [
   ['pakejTambahan','Pakej Tambahan','text'],['waktuEvent','Waktu Event','text'],
   ['transportCharges','Transportation Charges (RM)','number'],
   ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
+  ['revenueCategory','Revenue Category (for Account Statement)','select',REVENUE_CATEGORIES],
 ];
 const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
@@ -235,6 +706,29 @@ const STAFF_FIELDS = [
   ['transportAllowance','Transport Allowance (RM)','number'],['mealAllowance','Meal Allowance (RM)','number'],
   ['remarks','Remarks','text'],
 ];
+
+/* ======================= ACCOUNT STATEMENT: EXPENSE DATA MODEL ======================= */
+const EXPENSE_FIELDS = [
+  ['date','Date','date'],['category','Expense Category','select',OPEX_CATEGORIES],
+  ['type','OPEX / CAPEX','select',['OPEX','CAPEX']],['description','Description','text'],
+  ['supplier','Supplier','text'],['paymentMethod','Payment Method','select',PAYMENT_METHODS],
+  ['amount','Amount (RM)','number'],['receiptAvailable','Receipt Available?','select',['Yes','No']],
+  ['notes','Notes','text'],
+];
+function emptyExpense(){
+  return { id:uid(), date:todayISO(), category:OPEX_CATEGORIES[0], type:'OPEX', description:'', supplier:'',
+    paymentMethod:PAYMENT_METHODS[0], amount:0, receiptAvailable:'Yes', notes:'', createdAt:new Date().toISOString() };
+}
+function guessRevenueCategory(b){
+  const s = ((b.jenisEvent||'')+' '+(b.pakej||'')).toLowerCase();
+  if(s.includes('corporate')) return 'Corporate event package';
+  if(s.includes('wedding')) return 'Wedding event package';
+  if(s.includes('convocation') || s.includes('school')) return 'Convocation / school event package';
+  if(s.includes('360')) return '360 spin booth';
+  if(s.includes('keychain')) return 'Keychain add-on';
+  if(s.includes('guest book')) return 'Guest book add-on';
+  return 'Other income';
+}
 
 /* ======================= PDF BUILDING ======================= */
 const TERMS = "1. A non-refundable deposit is required to confirm this booking. 2. Full balance is due on or before the event date unless otherwise agreed. 3. Any changes to event date, time, or location must be notified at least 7 days in advance. 4. Kerlip Photobooth is not liable for delays caused by venue access, power supply, or weather for outdoor setups. 5. Prices are valid for the scope described in this document only.";
@@ -681,22 +1175,24 @@ function render(){
   if(State.loading){ app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface)">${I.aperture(48)}</div>`; return; }
   if(!State.authed){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
 
+  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',quotations:'Quotations',staff:'Staff Allowance',accounts:'Account Statement'};
   app.innerHTML = `
-    <div style="min-height:100vh">
-      <div style="position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--paper);border-bottom:1px solid var(--line)">
-        <div style="display:flex;align-items:center;gap:10px">
-          ${I.aperture(32)}
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main-wrap">
+        <div class="topbar">
           <div>
-            <div class="serif" style="font-weight:700;font-size:14px;line-height:1">Kerlip Photobooth</div>
-            <div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Admin Console</div>
+            <h1 class="page-title">${pageNames[State.view] || 'Dashboard'}</h1>
+            <div class="page-subtitle">Kerlip Photobooth operations, documents and finance.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;min-width:0">
+            <div class="global-search">${I.search}<input placeholder="Search bookings, clients, invoices…" /></div>
+            ${themeButtonHtml()}
+            <button class="btn" id="btn-logout">${I.logout} Sign out</button>
           </div>
         </div>
-        <button class="btn" id="btn-logout">${I.logout} Sign out</button>
-      </div>
-      <div style="max-width:1680px;width:98%;margin:0 auto;padding:20px;display:flex;gap:20px;flex-wrap:nowrap" id="layout">
-        <div style="width:200px;flex-shrink:0" id="sidebar"></div>
-        <div style="flex:1;min-width:0" id="main"></div>
-      </div>
+        <div class="content" id="main"></div>
+      </main>
     </div>
     ${State.formModal ? renderFormModal() : ''}
     ${State.docModal ? renderDocModal() : ''}
@@ -709,21 +1205,20 @@ function render(){
 }
 
 function renderLogin(){
-  return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface);padding:16px">
-    <div class="card" style="width:100%;max-width:360px;padding:32px">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px">
-        ${I.aperture(56)}
+  return `<div class="login-bg">
+    <div class="login-card">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:28px">
+        ${I.aperture(64)}
         <div style="text-align:center">
-          <div class="serif" style="font-weight:700;font-size:19px">Kerlip Photobooth</div>
-          <div style="font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Admin Console</div>
+          <div class="serif" style="font-weight:700;font-size:25px;letter-spacing:-.03em">Welcome back</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Sign in to Kerlip Photobooth Admin Console</div>
         </div>
       </div>
-      <form id="login-form" style="display:flex;flex-direction:column;gap:10px">
-        <label class="label">Admin password</label>
-        <input class="input" id="login-pw" type="password" placeholder="Enter password" autofocus />
+      <form id="login-form" style="display:flex;flex-direction:column;gap:14px">
+        <div class="field"><label class="label">Admin password</label><input class="input" id="login-pw" type="password" placeholder="Enter password" autofocus /></div>
         <div id="login-err" style="font-size:12px;color:var(--danger)"></div>
-        <button class="btn btn-dark" type="submit" style="justify-content:center;margin-top:4px">Sign in</button>
-        <div style="font-size:10.5px;text-align:center;color:var(--muted);margin-top:2px">Demo password: <span style="font-family:monospace">kerlip2026</span></div>
+        <button class="btn btn-dark" type="submit" style="justify-content:center;margin-top:2px;width:100%;padding:13px 18px">Sign in</button>
+        <div style="font-size:11px;text-align:center;color:var(--muted);margin-top:2px">Demo password: <span style="font-family:monospace">kerlip2026</span></div>
       </form>
     </div>
   </div>`;
@@ -740,14 +1235,19 @@ function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
     ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
+    ['accounts', I.chart, 'Account Statement'],
   ];
   const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
   return `
-    <div class="card" style="padding:8px;display:flex;flex-direction:column;gap:2px">
-      ${nav.map(([id,icon,label])=>`<button class="navitem ${State.view===id?'active':''}" data-nav="${id}">${icon}${label}</button>`).join('')}
+    <div class="sidebar-brand">
+      ${I.aperture(42)}
+      <div><div class="sidebar-brand-title">Kerlip Photobooth</div><div class="sidebar-brand-sub">Admin CRM</div></div>
     </div>
-    ${reminders.length ? `<div class="card" style="margin-top:14px;padding:14px;background:var(--dangerSoft);border:none">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--danger);margin-bottom:8px">${I.alert} Unpaid Balance</div>
+    <nav class="nav-card">
+      ${nav.map(([id,icon,label])=>`<button class="navitem ${State.view===id?'active':''}" data-nav="${id}">${icon}${label}</button>`).join('')}
+    </nav>
+    ${reminders.length ? `<div class="card" style="margin-top:auto;padding:14px;background:var(--dangerSoft);border:none">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:var(--danger);margin-bottom:8px">${I.alert} Unpaid Balance</div>
       ${reminders.slice(0,5).map(b=>`<div style="font-size:11.5px;color:var(--danger);margin-bottom:4px">${esc(b.namaClient)} — ${rm(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))} due</div>`).join('')}
     </div>` : ''}
   `;
@@ -758,6 +1258,7 @@ function renderMain(){
   if(State.view==='bookings') return renderBookings();
   if(State.view==='quotations') return renderQuotations();
   if(State.view==='staff') return renderStaff();
+  if(State.view==='accounts') return renderAccounts();
   return '';
 }
 
@@ -767,6 +1268,27 @@ function statCard(icon,label,val,sub,bg){
     <div class="iconwrap" style="${bg?`background:${bg}`:''}">${icon}</div></div>
     <div class="val">${val}</div>${sub?`<div style="font-size:11px;color:var(--muted)">${sub}</div>`:''}</div>`;
 }
+
+function eventToneClass(b){
+  const txt = `${b.jenisEvent||''} ${b.pakej||''} ${b.lokasiEvent||''}`.toLowerCase();
+  if(txt.includes('wedding')) return 'event-gold';
+  if(txt.includes('hospital') || txt.includes('medical') || txt.includes('ppum') || txt.includes('ummc')) return 'event-orange';
+  if(txt.includes('corporate') || txt.includes('company') || txt.includes('faazmiar')) return 'event-green';
+  if(txt.includes('convocation') || txt.includes('school') || txt.includes('university')) return 'event-blue';
+  return 'event-purple';
+}
+function eventIconSvg(b){
+  const txt = `${b.jenisEvent||''} ${b.pakej||''} ${b.lokasiEvent||''}`.toLowerCase();
+  if(txt.includes('wedding')) return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8.5 8.5a5 5 0 1 0 7 7"/><path d="M15.5 8.5a5 5 0 1 1-7 7"/><path d="M8 3h8l-4 5-4-5Z"/></svg>`;
+  if(txt.includes('hospital') || txt.includes('medical') || txt.includes('ppum') || txt.includes('ummc')) return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M12 7v5"/><path d="M9.5 9.5h5"/></svg>`;
+  if(txt.includes('convocation') || txt.includes('school') || txt.includes('university')) return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>`;
+  if(txt.includes('corporate') || txt.includes('company') || txt.includes('faazmiar')) return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z"/><path d="M3 13h18"/></svg>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+}
+function eventDateIcon(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 2v4M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="4"/><path d="M3 10h18"/></svg>`; }
+function eventPinIcon(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`; }
+function eventCheckIcon(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>`; }
+
 function renderDashboard(){
   const b = State.bookings, s = State.staff;
   const mk = todayISO().slice(0,7);
@@ -782,7 +1304,7 @@ function renderDashboard(){
 
   return `
   <div style="display:flex;flex-direction:column;gap:18px">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+    <div class="kpi-grid">
       ${statCard(I.list,'Total Bookings',total)}
       ${statCard(`<span style="color:var(--success)">✓</span>`,'Confirmed',confirmed)}
       ${statCard(`<span style="color:var(--goldDeep)">⏱</span>`,'Pending',pending)}
@@ -791,25 +1313,174 @@ function renderDashboard(){
       ${statCard('RM','Monthly Revenue',rm(monthlyRevenue),'Active bookings this month')}
     </div>
     <div class="serif" style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--goldDeep);text-transform:uppercase;margin-top:4px">Crew &amp; Profit</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+    <div class="kpi-grid">
       ${statCard(I.users,'Staff Allowance (Month)',rm(staffTotalMonth))}
       ${statCard('✓','Paid Allowance',rm(staffPaid))}
       ${statCard(I.alert,'Pending Allowance',rm(staffPending),'','var(--dangerSoft)')}
       ${statCard('RM','Net Profit',rm(netProfit),'Revenue minus staff allowance')}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="dgrid">
-      <div class="card" style="padding:18px">
-        <div style="font-weight:700;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:6px">${I.users} Upcoming Events</div>
-        ${upcoming.length===0?`<div style="font-size:13px;color:var(--muted)">No upcoming events.</div>`:
-          upcoming.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:12px;background:var(--surfaceAlt);margin-bottom:6px">
-            <div><div style="font-size:13px;font-weight:600">${esc(x.namaClient)} — ${esc(x.jenisEvent||'Event')}</div>
-            <div style="font-size:11px;color:var(--muted)">${displayDate(x.tarikhEvent)} · ${esc(x.lokasiEvent)}</div></div>
-            ${badge(bookingTone(x.bookingStatus),x.bookingStatus)}</div>`).join('')}
+      <div class="card upcoming-panel">
+        <div class="upcoming-head">${I.users} Upcoming Events</div>
+        <div class="upcoming-list">
+        ${upcoming.length===0?`<div class="upcoming-empty">No upcoming events.</div>`:
+          upcoming.map(x=>`<div class="upcoming-card ${eventToneClass(x)}">
+            <div class="event-left">
+              <div class="event-icon">${eventIconSvg(x)}</div>
+              <div class="event-copy">
+                <div class="event-title">${esc(x.namaClient)} — ${esc(x.jenisEvent||'Event')}</div>
+                <div class="event-meta">${eventDateIcon()} <span>${displayDate(x.tarikhEvent)}</span> <span class="event-dot">•</span> ${eventPinIcon()} <span>${esc(x.lokasiEvent||'Location TBC')}</span></div>
+              </div>
+            </div>
+            <div class="event-status">${eventCheckIcon()} ${esc(x.bookingStatus)}</div>
+          </div>`).join('')}
+        </div>
       </div>
       ${renderMiniCalendar()}
     </div>
   </div>
-  <style>@media(max-width:900px){.dgrid{grid-template-columns:1fr !important}}</style>`;
+  <style>@media(max-width:900px){.dgrid{grid-template-columns:1fr !important}}
+
+/* ======================= THEME TOGGLE: LIGHT / DARK ======================= */
+.theme-toggle{
+  min-width:116px;
+  position:relative;
+  overflow:hidden;
+}
+.theme-toggle .theme-icon{font-size:15px;line-height:1;filter:drop-shadow(0 0 10px rgba(139,92,246,.45));}
+.theme-toggle .theme-label{font-size:12px;font-weight:850;}
+
+body.light{
+  --ink:#2F241F;
+  --paper:#FFFDF9;
+  --surface:#F5F0EA;
+  --surfaceAlt:#FFF7F1;
+  --line:rgba(91,51,36,.12);
+  --gold:#FF6B1A;
+  --goldDeep:#5B3324;
+  --goldSoft:rgba(255,107,26,.13);
+  --accent:#C86B42;
+  --accentSoft:rgba(200,107,66,.13);
+  --success:#1F8A5B;
+  --successSoft:#EAF7F0;
+  --warning:#B7791F;
+  --warningSoft:#FFF6DE;
+  --danger:#C2412D;
+  --dangerSoft:#FFF0EC;
+  --muted:#8B7668;
+  --shadow:0 18px 45px rgba(91,51,36,.08);
+  --shadowHover:0 24px 70px rgba(91,51,36,.15);
+  --glow:0 0 0 4px rgba(255,107,26,.11);
+  background:
+    radial-gradient(circle at 14% 9%,rgba(255,107,26,.12),transparent 28%),
+    radial-gradient(circle at 88% 14%,rgba(91,51,36,.10),transparent 25%),
+    linear-gradient(135deg,#F7F1EA 0%,#FBF5EE 48%,#EFE3D7 100%);
+  color:var(--ink);
+}
+body.light .topbar{
+  background:rgba(255,253,249,.84);
+  border-bottom:1px solid rgba(91,51,36,.10);
+  box-shadow:0 12px 32px rgba(91,51,36,.06);
+}
+body.light .sidebar{
+  background:rgba(255,253,249,.84);
+  border-right:1px solid rgba(91,51,36,.10);
+  box-shadow:18px 0 45px rgba(91,51,36,.05);
+}
+body.light .sidebar-brand-title,
+body.light .page-title{color:#2F241F;text-shadow:none;}
+body.light .sidebar-brand-sub,
+body.light .page-subtitle{color:#8B7668;}
+body.light .card{
+  background:rgba(255,253,249,.92);
+  border:1px solid rgba(91,51,36,.10);
+  box-shadow:var(--shadow);
+}
+body.light .stat{
+  background:
+    linear-gradient(145deg,rgba(255,253,249,.98) 0%,rgba(255,247,241,.96) 58%,rgba(255,107,26,.10) 100%);
+  border-color:rgba(91,51,36,.10);
+}
+body.light .stat:after{background:radial-gradient(circle,rgba(255,107,26,.18),transparent 70%);}
+body.light .stat:hover{border-color:rgba(255,107,26,.30);box-shadow:var(--shadowHover),0 0 0 4px rgba(255,107,26,.06);}
+body.light .stat .val{color:#2F241F;text-shadow:none;}
+body.light .section-kicker{color:#5B3324;}
+body.light .btn{
+  background:rgba(255,253,249,.9);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.13);
+  box-shadow:0 10px 22px rgba(91,51,36,.06),inset 0 1px 0 rgba(255,255,255,.95);
+}
+body.light .btn:hover{
+  background:#FFFFFF;
+  border-color:rgba(255,107,26,.38);
+  box-shadow:0 16px 34px rgba(91,51,36,.10),0 0 0 4px rgba(255,107,26,.09);
+}
+body.light .btn-dark{
+  background:linear-gradient(135deg,#5B3324,#6B3F2E 58%,#FF6B1A);
+  color:#fff;
+  border:0;
+  box-shadow:0 16px 34px rgba(91,51,36,.20);
+}
+body.light .btn-dark:hover{box-shadow:0 20px 46px rgba(255,107,26,.24);}
+body.light .btn-ghost{color:#8B7668;}
+body.light .btn-ghost:hover{background:rgba(255,107,26,.11);color:#FF6B1A;}
+body.light .input,
+body.light .global-search{
+  background:rgba(255,253,249,.9);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.12);
+  box-shadow:0 10px 22px rgba(91,51,36,.04),inset 0 1px 0 rgba(255,255,255,.9);
+}
+body.light .global-search input{color:#2F241F;}
+body.light .input::placeholder{color:#B29B8B;}
+body.light .input:focus{border-color:rgba(255,107,26,.58);box-shadow:0 0 0 4px rgba(255,107,26,.12),0 12px 26px rgba(91,51,36,.07);background:#fff;}
+body.light select.input option{background:#FFFFFF;color:#2F241F;}
+body.light th{
+  background:#F1E7DD;
+  color:#8B7668;
+  border-bottom:1px solid rgba(91,51,36,.10);
+}
+body.light td{
+  background:#FFFDF9;
+  color:#2F241F;
+  border-top:1px solid rgba(91,51,36,.08);
+}
+body.light tbody tr:nth-child(even) td{background:#FFF7F1;}
+body.light tbody tr:hover td{background:#FCEBDD;}
+body.light .table-wrap,
+body.light .card[style*="overflow-x:auto"]{background:rgba(255,253,249,.92);}
+body.light .navitem{color:#6E5A4D;}
+body.light .navitem:hover{background:rgba(255,107,26,.10);color:#5B3324;}
+body.light .navitem.active{
+  background:linear-gradient(90deg,rgba(255,107,26,.15),rgba(255,253,249,.9));
+  color:#5B3324;
+  box-shadow:inset 4px 0 0 #FF6B1A,0 12px 28px rgba(91,51,36,.05);
+}
+body.light .navitem.active svg{color:#FF6B1A;filter:drop-shadow(0 0 10px rgba(255,107,26,.25));}
+body.light .modal-bg{background:rgba(91,51,36,.28);}
+body.light .modal{
+  background:rgba(255,253,249,.98);
+  color:#2F241F;
+  border:1px solid rgba(91,51,36,.10);
+  box-shadow:0 30px 90px rgba(91,51,36,.22);
+}
+body.light .toast{
+  background:linear-gradient(135deg,#5B3324,#FF6B1A);
+  color:#fff;
+  box-shadow:0 18px 45px rgba(91,51,36,.22);
+}
+body.light .dochelp{background:#FFF7F1;color:#8B7668;border:1px solid rgba(91,51,36,.08);}
+body.light .iconwrap{background:rgba(255,107,26,.13);color:#FF6B1A;}
+body.light .badge{box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
+body.light .login-bg{background:linear-gradient(135deg,#F7F1EA,#EFE3D7);}
+body.light .login-card{background:rgba(255,253,249,.9);border:1px solid rgba(91,51,36,.10);box-shadow:0 35px 90px rgba(91,51,36,.16);}
+body.light ::-webkit-scrollbar-track{background:rgba(91,51,36,.04);}
+body.light ::-webkit-scrollbar-thumb{background:rgba(91,51,36,.18);border:2px solid transparent;background-clip:padding-box;}
+body.light ::-webkit-scrollbar-thumb:hover{background:rgba(255,107,26,.52);background-clip:padding-box;}
+@media(max-width:820px){.theme-toggle{min-width:auto}.theme-toggle .theme-label{display:none}}
+
+</style>`;
 }
 
 let calCursor = new Date();
@@ -822,14 +1493,14 @@ function renderMiniCalendar(){
   for(let d=1; d<=days; d++){
     const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const has = byDate[iso]; const isToday = iso===todayISO();
-    cells += `<div style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;position:relative;
+    cells += `<div class="calendar-day" style="
       background:${has?'var(--goldSoft)':'transparent'};border:${isToday?'1.5px solid var(--gold)':'1px solid transparent'};
       color:${has?'var(--goldDeep)':'var(--ink)'};font-weight:${has?'700':'400'}" title="${has?esc(has.map(x=>x.namaClient).join(', ')):''}">${d}</div>`;
   }
   const label = calCursor.toLocaleDateString('en-MY',{month:'long',year:'numeric'});
-  return `<div class="card" style="padding:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">${I.dash} ${label}</div>
+  return `<div class="card calendar-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px">${I.dash} ${label}</div>
       <div style="display:flex;gap:4px"><button class="btn-ghost" data-cal="-1">${I.chevL}</button><button class="btn-ghost" data-cal="1">${I.chevR}</button></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:10.5px;color:var(--muted);text-align:center;margin-bottom:4px">
@@ -873,7 +1544,7 @@ function renderBookings(){
       <button class="btn" id="btn-export-pdf">${I.doc} PDF List</button>
       <button class="btn btn-dark" id="btn-new-booking">${I.plus} New Booking</button>
     </div>
-    <div class="card" style="overflow-x:auto">
+    <div class="card table-card table-scroll">
       <table>
         <thead><tr>${['Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
@@ -912,7 +1583,7 @@ function renderQuotations(){
     <div style="display:flex;justify-content:flex-end">
       <button class="btn btn-dark" id="btn-new-quotation">${I.plus} New Quotation</button>
     </div>
-    <div class="card" style="overflow-x:auto">
+    <div class="card table-card table-scroll">
       <table>
         <thead><tr>${['No.','Date','Client','Event Date','Package','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
@@ -950,7 +1621,7 @@ function renderStaff(){
     <div style="display:flex;justify-content:flex-end">
       <button class="btn btn-dark" id="btn-new-staff">${I.plus} New Staff Entry</button>
     </div>
-    <div class="card" style="overflow-x:auto">
+    <div class="card table-card table-scroll">
       <table>
         <thead><tr>${['Event Date','Booking Ref','Staff','Phone','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
@@ -976,11 +1647,174 @@ function renderStaff(){
   </div>`;
 }
 
+/* ======================= ACCOUNT STATEMENT: ENGINE ======================= */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function zeros(){ return Array(12).fill(0); }
+function computeAccountStatement(year){
+  const revByCat = {}; REVENUE_CATEGORIES.forEach(c=>revByCat[c]=zeros());
+  const opexByCat = {}; OPEX_CATEGORIES.forEach(c=>opexByCat[c]=zeros());
+  const capexByMonth = zeros();
+
+  State.bookings.forEach(b=>{
+    if(b.bookingStatus==='Cancelled') return;
+    if(!b.tarikhEvent || b.tarikhEvent.slice(0,4)!==year) return;
+    const m = Number(b.tarikhEvent.slice(5,7))-1; if(m<0||m>11) return;
+    const cat = REVENUE_CATEGORIES.includes(b.revenueCategory) ? b.revenueCategory : guessRevenueCategory(b);
+    revByCat[cat][m] += num(b.jumlahKeseluruhan);
+  });
+
+  State.staff.forEach(s=>{
+    if(!s.eventDate || s.eventDate.slice(0,4)!==year) return;
+    const m = Number(s.eventDate.slice(5,7))-1; if(m<0||m>11) return;
+    opexByCat['Manpower / assistant salary'][m] += staffTotal(s);
+  });
+
+  State.expenses.forEach(e=>{
+    if(!e.date || e.date.slice(0,4)!==year) return;
+    const m = Number(e.date.slice(5,7))-1; if(m<0||m>11) return;
+    if(e.type==='CAPEX'){ capexByMonth[m] += num(e.amount); return; }
+    const cat = OPEX_CATEGORIES.includes(e.category) ? e.category : 'Miscellaneous expenses';
+    opexByCat[cat][m] += num(e.amount);
+  });
+
+  const revTotal = zeros(), opexTotal = zeros();
+  for(let m=0;m<12;m++){
+    REVENUE_CATEGORIES.forEach(c=> revTotal[m]+=revByCat[c][m]);
+    OPEX_CATEGORIES.forEach(c=> opexTotal[m]+=opexByCat[c][m]);
+  }
+  const netProfit = revTotal.map((v,m)=> v - opexTotal[m]);
+
+  const opening = zeros(), inflow = revTotal, outflow = zeros(), netCash = zeros(), closing = zeros();
+  let running = 0;
+  for(let m=0;m<12;m++){
+    opening[m] = running;
+    outflow[m] = opexTotal[m] + capexByMonth[m];
+    netCash[m] = inflow[m] - outflow[m];
+    closing[m] = opening[m] + netCash[m];
+    running = closing[m];
+  }
+
+  const sum = arr => arr.reduce((a,b)=>a+b,0);
+  const totalRevenue = sum(revTotal), totalOpex = sum(opexTotal), totalCapex = sum(capexByMonth);
+  const grossProfit = totalRevenue - totalOpex;
+  const netProfitYear = grossProfit; // no COGS/tax distinction in this simplified statement
+  const profitMargin = totalRevenue ? netProfitYear/totalRevenue : 0;
+
+  return { year, revByCat, opexByCat, capexByMonth, revTotal, opexTotal, netProfit,
+    opening, inflow, outflow, netCash, closing,
+    totalRevenue, totalOpex, totalCapex, grossProfit, netProfitYear, profitMargin,
+    closingCashBalance: closing[11] };
+}
+function accountYears(){
+  const ys = new Set(['2026']);
+  State.bookings.forEach(b=>{ if(b.tarikhEvent) ys.add(b.tarikhEvent.slice(0,4)); });
+  State.expenses.forEach(e=>{ if(e.date) ys.add(e.date.slice(0,4)); });
+  State.staff.forEach(s=>{ if(s.eventDate) ys.add(s.eventDate.slice(0,4)); });
+  return [...ys].sort();
+}
+
+/* ======================= ACCOUNT STATEMENT: VIEW ======================= */
+function statementRow(label,vals,total,opts={}){
+  const bold = opts.bold ? 'font-weight:700' : '';
+  const color = opts.color ? `color:${opts.color}` : '';
+  return `<tr style="${bold}">
+    <td style="${bold};${opts.indent?'padding-left:30px;color:var(--muted);font-weight:400':''}">${esc(label)}</td>
+    ${vals.map(v=>`<td style="${color}">${v===0?'—':rmVal(v)}</td>`).join('')}
+    <td style="${bold};${color}">${total===0?'—':rmVal(total)}</td>
+  </tr>`;
+}
+function renderAccounts(){
+  const year = State.accountsYear;
+  const st = computeAccountStatement(year);
+  const years = accountYears();
+  const expenses = State.expenses.filter(e=>!e.date || e.date.slice(0,4)===year).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+  return `
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="label" style="margin:0">Statement Year</span>
+        <select class="input" id="acc-year" style="width:auto;padding:8px 10px">${years.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-new-expense">${I.plus} New Expense / CAPEX</button>
+        <button class="btn" id="btn-acc-excel">${I.download} Export Excel</button>
+        <button class="btn btn-dark" id="btn-acc-pdf">${I.doc} Export PDF Statement</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      ${statCard('RM','Total Revenue',rm(st.totalRevenue))}
+      ${statCard('RM','Total OPEX',rm(st.totalOpex))}
+      ${statCard('RM','Total CAPEX',rm(st.totalCapex))}
+      ${statCard('RM','Gross Profit',rm(st.grossProfit))}
+      ${statCard('RM','Net Profit',rm(st.netProfitYear))}
+      ${statCard('%','Profit Margin',(st.profitMargin*100).toFixed(1)+'%')}
+      ${statCard('RM','Closing Cash Balance',rm(st.closingCashBalance))}
+    </div>
+
+    <div class="serif" style="font-size:14px;font-weight:700;color:var(--goldDeep);text-transform:uppercase;letter-spacing:.02em">Monthly Income Statement — ${year}</div>
+    <div class="card table-card table-scroll">
+      <table>
+        <thead><tr><th>Category</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>
+          <tr><td colspan="14" style="font-weight:700;background:var(--surface);color:var(--goldDeep)">REVENUE</td></tr>
+          ${REVENUE_CATEGORIES.map(c=>statementRow(c, st.revByCat[c], st.revByCat[c].reduce((a,b)=>a+b,0), {indent:true})).join('')}
+          ${statementRow('Total Revenue', st.revTotal, st.totalRevenue, {bold:true})}
+          <tr><td colspan="14" style="font-weight:700;background:var(--surface);color:var(--goldDeep)">OPEX</td></tr>
+          ${OPEX_CATEGORIES.map(c=>statementRow(c, st.opexByCat[c], st.opexByCat[c].reduce((a,b)=>a+b,0), {indent:true})).join('')}
+          ${statementRow('Total Operating Expenses', st.opexTotal, st.totalOpex, {bold:true})}
+          ${statementRow('Net Profit', st.netProfit, st.netProfitYear, {bold:true, color:'var(--success)'})}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="serif" style="font-size:14px;font-weight:700;color:var(--goldDeep);text-transform:uppercase;letter-spacing:.02em">Cash Flow Statement — ${year}</div>
+    <div class="card table-card table-scroll">
+      <table>
+        <thead><tr><th>Cash Flow Item</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>
+          ${statementRow('Opening Cash Balance', st.opening, st.opening[0])}
+          ${statementRow('Cash Inflow', st.inflow, st.totalRevenue)}
+          ${statementRow('Cash Outflow (OPEX + CAPEX)', st.outflow, st.totalOpex+st.totalCapex)}
+          ${statementRow('Net Cash Flow', st.netCash, st.netProfitYear-st.totalCapex, {bold:true})}
+          ${statementRow('Closing Cash Balance', st.closing, st.closingCashBalance, {bold:true, color:'var(--success)'})}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="serif" style="font-size:14px;font-weight:700;color:var(--goldDeep);text-transform:uppercase;letter-spacing:.02em">Expense / CAPEX Tracker — ${year}</div>
+    </div>
+    <div class="card table-card table-scroll">
+      <table>
+        <thead><tr>${['Date','Category','Type','Description','Supplier','Payment','Amount','Receipt','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${expenses.map(e=>`<tr>
+            <td>${displayDate(e.date)}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${esc(e.category)}">${esc(e.category)}</td>
+            <td>${badge(e.type==='CAPEX'?'gold':'muted',e.type)}</td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${esc(e.description)}">${esc(e.description)||'—'}</td>
+            <td>${esc(e.supplier)||'—'}</td>
+            <td>${esc(e.paymentMethod)||'—'}</td>
+            <td style="font-weight:700">${rmVal(e.amount)}</td>
+            <td>${e.receiptAvailable||'—'}</td>
+            <td><div style="display:flex;gap:2px">
+              <button class="btn-ghost" data-edit-e="${e.id}" title="Edit">${I.edit}</button>
+              <button class="btn-ghost" data-del-e="${e.id}" title="Delete">${I.trash}</button>
+            </div></td>
+          </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted)">No expense entries for ${year} yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 /* ======================= FORM MODAL (booking / quotation / staff) ======================= */
 function renderFormModal(){
   const { type, data } = State.formModal;
-  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:STAFF_FIELDS;
-  const title = type==='booking' ? (data._isNew?'New Booking':'Edit Booking') : type==='quotation' ? (data._isNew?'New Quotation':'Edit Quotation') : (data._isNew?'New Staff Entry':'Edit Staff Entry');
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:EXPENSE_FIELDS;
+  const title = type==='booking' ? (data._isNew?'New Booking':'Edit Booking') : type==='quotation' ? (data._isNew?'New Quotation':'Edit Quotation') : type==='staff' ? (data._isNew?'New Staff Entry':'Edit Staff Entry') : (data._isNew?'New Expense / CAPEX Entry':'Edit Expense / CAPEX Entry');
 
   let extra = '';
   if(type==='booking'){
@@ -996,7 +1830,7 @@ function renderFormModal(){
       <div class="field"><span class="label">Total Amount (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(total)}</div></div>
       <div class="field"><span class="label">Balance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(bal)}</div></div>
       <div class="field"><span class="label">Quotation Status</span><select class="input" id="ff-status">${['Draft','Sent','Accepted','Rejected'].map(s=>`<option ${data.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`;
-  } else {
+  } else if(type==='staff'){
     extra = `
       <div class="field"><span class="label">Total Staff Allowance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rmVal(staffTotal(data))}</div></div>
       <div class="field"><span class="label">Payment Status</span><select class="input" id="ff-paymentStatus">${['Pending','Paid'].map(s=>`<option ${data.paymentStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -1012,7 +1846,10 @@ function renderFormModal(){
       <form id="entity-form" style="padding:18px 20px">
         <div id="form-warn" style="display:none;align-items:flex-start;gap:8px;background:var(--dangerSoft);color:var(--danger);border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">${I.alert}<span id="form-warn-text"></span></div>
         <div class="grid2">
-          ${meta.map(([key,label,t])=>`<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`).join('')}
+          ${meta.map(([key,label,t,opts])=> t==='select'
+            ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}">${opts.map(o=>`<option ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
+            : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`
+          ).join('')}
           ${extra}
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
@@ -1092,6 +1929,7 @@ function renderSyncModal(){
 /* ======================= EVENT WIRING ======================= */
 function attachGlobalEvents(){
   $('btn-logout').onclick = () => { State.authed = false; render(); };
+  const themeBtn = $('btn-theme'); if(themeBtn) themeBtn.onclick = toggleTheme;
   document.querySelectorAll('[data-nav]').forEach(el => el.onclick = () => { State.view = el.dataset.nav; render(); });
   document.querySelectorAll('[data-cal]').forEach(el => el.onclick = () => {
     calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth()+Number(el.dataset.cal), 1); render();
@@ -1146,6 +1984,18 @@ function attachGlobalEvents(){
     if(confirm('Delete this staff allowance entry?')){ State.staff = State.staff.filter(x=>x.id!==el.dataset.delS); persist('staff'); render(); }
   });
 
+  // Account Statement
+  const accYear = $('acc-year'); if(accYear) accYear.onchange = () => { State.accountsYear = accYear.value; render(); };
+  const btnNewE = $('btn-new-expense'); if(btnNewE) btnNewE.onclick = () => openForm('expense', {...emptyExpense(), _isNew:true});
+  document.querySelectorAll('[data-edit-e]').forEach(el => el.onclick = () => {
+    const e2 = State.expenses.find(x=>x.id===el.dataset.editE); openForm('expense', {...e2});
+  });
+  document.querySelectorAll('[data-del-e]').forEach(el => el.onclick = () => {
+    if(confirm('Delete this expense / CAPEX entry?')){ State.expenses = State.expenses.filter(x=>x.id!==el.dataset.delE); persist('expenses'); showToast('Expense deleted.'); render(); }
+  });
+  const btnAccExcel = $('btn-acc-excel'); if(btnAccExcel) btnAccExcel.onclick = () => exportAccountsExcel(State.accountsYear);
+  const btnAccPdf = $('btn-acc-pdf'); if(btnAccPdf) btnAccPdf.onclick = () => exportAccountsPDF(State.accountsYear);
+
   // Docs
   document.querySelectorAll('[data-doc]').forEach(el => el.onclick = () => {
     const [kind,id] = el.dataset.doc.split(':');
@@ -1192,7 +2042,7 @@ function closeForm(){ State.formModal = null; render(); }
 function submitForm(e){
   e.preventDefault();
   const { type, data } = State.formModal;
-  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:STAFF_FIELDS;
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:EXPENSE_FIELDS;
   const out = { ...data };
   meta.forEach(([key,label,t]) => { const el = $('ff-'+key); out[key] = t==='number' ? Number(el.value)||0 : el.value; });
 
@@ -1231,6 +2081,14 @@ function submitForm(e){
     State.staff = exists ? State.staff.map(x=>x.id===out.id?out:x) : [...State.staff, out];
     persist('staff'); State.formModal = null; showToast('Staff allowance entry saved.'); render(); return;
   }
+
+  if(type==='expense'){
+    if(!out.category || !out.date || num(out.amount)<=0){ showFormWarn('Date, Category, and a valid Amount are required.'); return; }
+    delete out._isNew;
+    const exists = State.expenses.some(x=>x.id===out.id);
+    State.expenses = exists ? State.expenses.map(x=>x.id===out.id?out:x) : [...State.expenses, out];
+    persist('expenses'); State.formModal = null; showToast('Expense entry saved.'); render(); return;
+  }
 }
 function showFormWarn(msg){ const w=$('form-warn'), t=$('form-warn-text'); w.style.display='flex'; t.textContent=msg; }
 
@@ -1266,6 +2124,122 @@ function handlePdfAction(action){
   }
 }
 
+function exportAccountsExcel(year){
+  const st = computeAccountStatement(year);
+  const wb = XLSX.utils.book_new();
+
+  const dashRows = [
+    [`Kerlip Photobooth - ${year} Account Statement Dashboard`],
+    [],
+    ['Metric','Amount','','Month',...MONTHS],
+    ['Total Revenue', st.totalRevenue, '', 'Revenue', ...st.revTotal],
+    ['Total OPEX', st.totalOpex, '', 'OPEX', ...st.opexTotal],
+    ['Total CAPEX', st.totalCapex, '', 'Net Profit', ...st.netProfit],
+    ['Gross Profit', st.grossProfit, '', 'Closing Cash', ...st.closing],
+    ['Net Profit', st.netProfitYear],
+    ['Closing Cash Balance', st.closingCashBalance],
+    [],
+    ['','','','Cash Flow Summary','Amount'],
+    ['','','','Opening Cash Balance', st.opening[0]],
+    ['','','','Cash Inflow', st.totalRevenue],
+    ['','','','Cash Outflow', st.totalOpex+st.totalCapex],
+    ['','','','Net Cash Flow', st.netProfitYear-st.totalCapex],
+    ['','','','Closing Cash Balance', st.closingCashBalance],
+    ['','','','Profit Margin', st.profitMargin],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dashRows), 'Dashboard');
+
+  const incRows = [
+    [`Kerlip Photobooth - Monthly Income Statement ${year}`], [],
+    ['Category',...MONTHS,'Grand Total'],
+    ['REVENUE'],
+    ...REVENUE_CATEGORIES.map(c=>[c,...st.revByCat[c],st.revByCat[c].reduce((a,b)=>a+b,0)]),
+    ['Total Revenue',...st.revTotal, st.totalRevenue],
+    [],
+    ['OPEX'],
+    ...OPEX_CATEGORIES.map(c=>[c,...st.opexByCat[c],st.opexByCat[c].reduce((a,b)=>a+b,0)]),
+    ['Total Operating Expenses',...st.opexTotal, st.totalOpex],
+    [],
+    ['Net Profit',...st.netProfit, st.netProfitYear],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(incRows), 'Monthly Income Statement');
+
+  const cfRows = [
+    [`Cash Flow Statement ${year}`], [],
+    ['Cash Flow Item',...MONTHS,'Grand Total'],
+    ['Opening Cash Balance',...st.opening, st.opening[0]],
+    ['Cash Inflow',...st.inflow, st.totalRevenue],
+    ['Cash Outflow - OPEX',...st.opexTotal, st.totalOpex],
+    ['Cash Outflow - CAPEX',...st.capexByMonth, st.totalCapex],
+    ['Total Cash Outflow',...st.outflow, st.totalOpex+st.totalCapex],
+    ['Net Cash Flow',...st.netCash, st.netProfitYear-st.totalCapex],
+    ['Closing Cash Balance',...st.closing, st.closingCashBalance],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cfRows), 'Cash Flow Statement');
+
+  const expRows = State.expenses.filter(e=>!e.date||e.date.slice(0,4)===year).map(e=>({
+    'Date': e.date, 'Category': e.category, 'OPEX / CAPEX': e.type, 'Description': e.description,
+    'Supplier': e.supplier, 'Payment Method': e.paymentMethod, 'Amount': num(e.amount),
+    'Receipt Available?': e.receiptAvailable, 'Notes': e.notes,
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expRows), 'Expense Tracker');
+
+  const revRows = State.bookings.filter(b=>b.tarikhEvent && b.tarikhEvent.slice(0,4)===year).map(b=>({
+    'Date': b.tarikhEvent, 'Client Name': b.namaClient, 'Event Type': b.jenisEvent, 'Location': b.lokasiEvent,
+    'Package': b.pakej, 'Revenue Category': REVENUE_CATEGORIES.includes(b.revenueCategory)?b.revenueCategory:guessRevenueCategory(b),
+    'Total Invoice Amount': num(b.jumlahKeseluruhan), 'Amount Paid': b.paymentStatus==='Paid'?num(b.jumlahKeseluruhan):num(b.bayaranDeposit),
+    'Balance': num(b.jumlahKeseluruhan)-num(b.bayaranDeposit), 'Payment Status': b.paymentStatus, 'Booking Status': b.bookingStatus,
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(revRows), 'Event Revenue Tracker');
+
+  XLSX.writeFile(wb, `kerlip-account-statement-${year}.xlsx`);
+  showToast('Account statement Excel downloaded.');
+}
+
+function exportAccountsPDF(year){
+  const st = computeAccountStatement(year);
+  const doc = new window.jspdf.jsPDF();
+  docHeader(doc, 'Account Statement', year);
+  let y = 34;
+  y = docSectionTitle(doc, `Summary — ${year}`, y);
+  doc.autoTable({
+    startY: y, theme:'grid', margin:{left:16,right:16},
+    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:8}, styles:{fontSize:8,cellPadding:2.5},
+    head:[['Total Revenue','Total OPEX','Total CAPEX','Gross Profit','Net Profit','Profit Margin','Closing Cash']],
+    body:[[rmVal(st.totalRevenue),rmVal(st.totalOpex),rmVal(st.totalCapex),rmVal(st.grossProfit),rmVal(st.netProfitYear),(st.profitMargin*100).toFixed(1)+'%',rmVal(st.closingCashBalance)]],
+  });
+  y = doc.lastAutoTable.finalY + 10;
+  y = docSectionTitle(doc, 'Monthly Income Statement', y);
+  doc.autoTable({
+    startY:y, theme:'grid', margin:{left:16,right:16},
+    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:7}, styles:{fontSize:6.5,cellPadding:1.6},
+    head:[['Category',...MONTHS,'Total']],
+    body:[
+      ...REVENUE_CATEGORIES.filter(c=>st.revByCat[c].some(v=>v)).map(c=>[c,...st.revByCat[c].map(v=>rmVal(v)),rmVal(st.revByCat[c].reduce((a,b)=>a+b,0))]),
+      ['Total Revenue',...st.revTotal.map(v=>rmVal(v)),rmVal(st.totalRevenue)],
+      ...OPEX_CATEGORIES.filter(c=>st.opexByCat[c].some(v=>v)).map(c=>[c,...st.opexByCat[c].map(v=>rmVal(v)),rmVal(st.opexByCat[c].reduce((a,b)=>a+b,0))]),
+      ['Total OPEX',...st.opexTotal.map(v=>rmVal(v)),rmVal(st.totalOpex)],
+      ['Net Profit',...st.netProfit.map(v=>rmVal(v)),rmVal(st.netProfitYear)],
+    ],
+  });
+  y = doc.lastAutoTable.finalY + 10;
+  y = docSectionTitle(doc, 'Cash Flow Statement', y);
+  doc.autoTable({
+    startY:y, theme:'grid', margin:{left:16,right:16},
+    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:7}, styles:{fontSize:6.5,cellPadding:1.6},
+    head:[['Item',...MONTHS,'Total']],
+    body:[
+      ['Opening Cash',...st.opening.map(v=>rmVal(v)),rmVal(st.opening[0])],
+      ['Cash Inflow',...st.inflow.map(v=>rmVal(v)),rmVal(st.totalRevenue)],
+      ['Cash Outflow',...st.outflow.map(v=>rmVal(v)),rmVal(st.totalOpex+st.totalCapex)],
+      ['Closing Cash',...st.closing.map(v=>rmVal(v)),rmVal(st.closingCashBalance)],
+    ],
+  });
+  footerNote(doc);
+  doc.save(`kerlip-account-statement-${year}.pdf`);
+  showToast('Account statement PDF downloaded.');
+}
+
 function exportBookingsExcel(){
   const rows = State.bookings.map(b => ({
     'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
@@ -1293,6 +2267,7 @@ function exportBookingsListPDF(){
 }
 
 /* ======================= BOOT ======================= */
+applyTheme();
 loadAll().then(render);
 </script>
 </body>
