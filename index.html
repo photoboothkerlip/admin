@@ -566,10 +566,63 @@ const parseTimeRange = (text) => {
   return {start:to24(m[1],m[2],m[3]), end:to24(m[4],m[5],m[6]||m[3])};
 };
 
+
+/* ======================= COMPANY / E-INVOICE PROFILE ======================= */
+function defaultCompanyProfile(){
+  return {
+    businessName:'KERLIP STUDIO ENTERPRISE',
+    registrationNo:'003615278-U',
+    tin:'',
+    msicCode:'',
+    businessActivity:'Photobooth and event photography services',
+    sstNo:'N/A',
+    tourismTaxNo:'N/A',
+    email:'kerlip.studio@gmail.com',
+    phone:'',
+    website:'',
+    address1:'36, JALAN ALAM SURIA 16/72',
+    address2:'SEKSYEN 16 PUNCAK ALAM',
+    postcode:'42300',
+    city:'PUNCAK ALAM',
+    state:'SELANGOR',
+    country:'Malaysia',
+    bankName:'CIMB BANK BERHAD',
+    accountName:'KERLIP STUDIO ENTERPRISE',
+    accountNo:'8605915158',
+    invoicePrefix:'INV',
+    invoiceType:'Invoice',
+    classificationCode:'',
+    taxType:'Not Applicable',
+    taxRate:0,
+    currency:'MYR',
+    terms:'Full payment before event',
+    footer:'Thank you for choosing Kerlip Photobooth.',
+  };
+}
+function companyProfile(){ return { ...defaultCompanyProfile(), ...(State.company || {}) }; }
+function companyAddress(c=companyProfile()){
+  return [c.address1,c.address2,[c.postcode,c.city].filter(Boolean).join(' '),c.state,c.country].filter(Boolean).join(', ');
+}
+function companyBankLine(c=companyProfile()){
+  return `${c.accountNo || '—'} (${c.bankName || '—'})`;
+}
+const COMPANY_FIELDS = [
+  ['businessName','Supplier / Business Name','text'],['registrationNo','Registration Number / BRN','text'],
+  ['tin','TIN Number','text'],['msicCode','MSIC Code','text'],['businessActivity','Business Activity','text'],
+  ['sstNo','SST Registration No','text'],['tourismTaxNo','Tourism Tax No','text'],['phone','Business Phone','text'],
+  ['email','Business Email','email'],['website','Website','text'],['address1','Address Line 1','text'],
+  ['address2','Address Line 2','text'],['postcode','Postcode','text'],['city','City','text'],
+  ['state','State','text'],['country','Country','text'],['bankName','Bank Name','text'],
+  ['accountName','Bank Account Name','text'],['accountNo','Bank Account Number','text'],
+  ['invoicePrefix','Invoice Prefix','text'],['invoiceType','Invoice Type','text'],['classificationCode','Service Classification Code','text'],
+  ['taxType','Tax Type','text'],['taxRate','Tax Rate (%)','number'],['currency','Currency','text'],
+  ['terms','Terms & Conditions','textarea'],['footer','Invoice Footer Note','textarea'],
+];
+
 /* ======================= STATE ======================= */
 const State = {
   authed:false, view:'dashboard', loading:true,
-  bookings:[], quotations:[], staff:[], expenses:[],
+  bookings:[], quotations:[], staff:[], expenses:[], company: defaultCompanyProfile(),
   formModal:null,      // {type:'booking'|'quotation'|'staff'|'expense', data:{...}, isNew}
   docModal:null,       // {kind, obj}
   syncTarget:null,
@@ -589,16 +642,19 @@ async function loadAll(){
       State.quotations = Array.isArray(data.quotations) ? data.quotations : [];
       State.staff = Array.isArray(data.staff) ? data.staff : [];
       State.expenses = Array.isArray(data.expenses) ? data.expenses : [];
+      State.company = { ...defaultCompanyProfile(), ...(data.company || {}) };
     } else {
       State.bookings = [sampleBooking()];
       State.quotations = [];
       State.staff = [];
       State.expenses = [];
+      State.company = defaultCompanyProfile();
       await setDoc(appDataRef, {
         bookings: State.bookings,
         quotations: State.quotations,
         staff: State.staff,
         expenses: State.expenses,
+        company: State.company,
         updatedAt: new Date().toISOString()
       });
     }
@@ -608,6 +664,7 @@ async function loadAll(){
     State.quotations = [];
     State.staff = [];
     State.expenses = [];
+    State.company = defaultCompanyProfile();
     showToast("Firebase load failed. Check Firestore rules.");
   }
   State.loading = false;
@@ -620,6 +677,7 @@ async function persist(key){
       quotations: State.quotations,
       staff: State.staff,
       expenses: State.expenses,
+      company: State.company,
       updatedAt: new Date().toISOString()
     }, { merge:true });
     console.log("Saved to Firebase:", key);
@@ -703,6 +761,8 @@ const BOOKING_FIELDS = [
   ['transportCharges','Transportation Charges (RM)','number'],
   ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
   ['revenueCategory','Revenue Category (for Account Statement)','select',REVENUE_CATEGORIES],
+  ['buyerTin','Buyer TIN','text'],['buyerRegistrationNo','Buyer Registration / IC / Passport','text'],
+  ['buyerEmail','Buyer Email','email'],['buyerBillingAddress','Buyer Billing Address','text'],
 ];
 const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
@@ -1053,7 +1113,8 @@ function buildBookingSummaryPDF(b){
 function buildInvoicePDF(b){
   const doc = new window.jspdf.jsPDF();
   const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
-  const docNo = 'INV' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
+  const cForNo = companyProfile();
+  const docNo = (cForNo.invoicePrefix || 'INV') + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
 
   const pageW = 210;
   const pageH = 297;
@@ -1071,6 +1132,11 @@ function buildInvoicePDF(b){
   const total = num(b.jumlahKeseluruhan);
   const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
   const balance = Math.max(0, total - paidAmount);
+  const company = companyProfile();
+  const taxRate = num(company.taxRate);
+  const subtotal = total;
+  const taxAmount = subtotal * taxRate / 100;
+  const grandTotal = subtotal + taxAmount;
 
   const value = (v) => String(v || '—');
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
@@ -1090,7 +1156,9 @@ function buildInvoicePDF(b){
   doc.setTextColor(...muted);
   doc.setFont('helvetica','normal');
   doc.setFontSize(8.5);
-  doc.text(' Turning Moments into Memorries', 13, 55);
+  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 13, 51);
+  doc.text('BRN: ' + (company.registrationNo || '—') + '   TIN: ' + (company.tin || '—'), 13, 56);
+  doc.text('MSIC: ' + (company.msicCode || '—') + ' - ' + (company.businessActivity || '—'), 13, 61);
 
   // right premium invoice badge / header
   doc.setFillColor(...black);
@@ -1115,6 +1183,9 @@ function buildInvoicePDF(b){
   doc.setFont('helvetica','normal');
   doc.text(docNo, 196, 48, {align:'right'});
   doc.text(new Date().toLocaleDateString('en-MY'), 196, 58, {align:'right'});
+  doc.setFontSize(7.2);
+  doc.setTextColor(...muted);
+  doc.text('TYPE: ' + (company.invoiceType || 'Invoice'), 196, 67, {align:'right'});
   doc.setDrawColor(...gold);
   doc.setLineWidth(0.5);
   doc.line(126, 63, 196, 63);
@@ -1153,7 +1224,7 @@ function buildInvoicePDF(b){
   };
 
   // ========= CLIENT DETAILS =========
-  let y = 76;
+  let y = 82;
   sectionTitle('Client Details', y, 'C');
   y += 5;
   box(10, y, 190, 30, [255,253,249]);
@@ -1162,11 +1233,11 @@ function buildInvoicePDF(b){
 
   kv('Client Name', b.namaClient, 16, y+8);
   kv('Client Phone', b.noHpClient, 16, y+16);
-  kv('Contact Person', b.namaCP || '—', 16, y+24);
+  kv('Buyer TIN', b.buyerTin || '—', 16, y+24);
 
   kv('Booking Status', b.bookingStatus, 112, y+8);
   kv('Payment Status', b.paymentStatus, 112, y+16);
-  kv('Event Type', b.jenisEvent, 112, y+24, 45);
+  kv('Reg / ID No', b.buyerRegistrationNo || '—', 112, y+24, 45);
 
   // ========= EVENT DETAILS =========
   y += 42;
@@ -1186,16 +1257,16 @@ function buildInvoicePDF(b){
     startY:y,
     theme:'grid',
     margin:{left:10,right:10},
-    head:[['Item','Detail']],
+    head:[['Description','Class. Code','Qty','Unit Price','Tax','Amount']],
     body:[
-      ['Package', b.pakej || 'Photobooth Package'],
-      ['Backdrop', b.backdrop || '—'],
-      ['Add-On', b.pakejTambahan || 'N/A'],
-      ['Transportation Charges', num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A']
+      [b.pakej || 'Photobooth Package', company.classificationCode || '—', '1', rmVal(total - num(b.transportCharges)), `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(total - num(b.transportCharges))],
+      ['Backdrop: ' + (b.backdrop || 'Standard / Selected'), company.classificationCode || '—', '1', 'Included', `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(0)],
+      ['Add-On: ' + (b.pakejTambahan || 'N/A'), company.classificationCode || '—', '1', 'Included', `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(0)],
+      ['Transportation Charges', company.classificationCode || '—', '1', num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A', `${company.taxType || 'N/A'} ${taxRate}%`, num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A']
     ],
-    headStyles:{fillColor:black, textColor:[238,200,120], fontStyle:'bold', fontSize:8.5},
-    styles:{fontSize:8.7, cellPadding:3.2, lineColor:line, lineWidth:0.2, textColor:text},
-    columnStyles:{0:{cellWidth:65,fontStyle:'bold'},1:{cellWidth:125}},
+    headStyles:{fillColor:black, textColor:[238,200,120], fontStyle:'bold', fontSize:7.5},
+    styles:{fontSize:7.6, cellPadding:2.7, lineColor:line, lineWidth:0.2, textColor:text},
+    columnStyles:{0:{cellWidth:60,fontStyle:'bold'},1:{cellWidth:25},2:{cellWidth:14,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'center'},5:{cellWidth:31,halign:'right'}},
   });
 
   // ========= PAYMENT SUMMARY + THANK YOU =========
@@ -1207,18 +1278,20 @@ function buildInvoicePDF(b){
   doc.setFontSize(9.5);
   doc.setTextColor(...text);
   doc.setFont('helvetica','normal');
-  doc.text('TOTAL AMOUNT', 16, y+8);
-  doc.text('DEPOSIT PAID', 16, y+18);
+  doc.text('SUBTOTAL', 16, y+7);
+  doc.text('TAX AMOUNT', 16, y+15);
+  doc.text('DEPOSIT PAID', 16, y+23);
   doc.setFont('helvetica','bold');
-  doc.text(rmVal(total), 94, y+8, {align:'right'});
-  doc.text(rmVal(paidAmount), 94, y+18, {align:'right'});
+  doc.text(rmVal(subtotal), 94, y+7, {align:'right'});
+  doc.text(rmVal(taxAmount), 94, y+15, {align:'right'});
+  doc.text(rmVal(paidAmount), 94, y+23, {align:'right'});
 
   doc.setFillColor(...paleGold);
   doc.rect(10, y+25, 90, 11, 'F');
   doc.setFont('helvetica','bold');
   doc.setTextColor(...black);
   doc.text('BALANCE DUE', 16, y+32);
-  doc.text(rmVal(balance), 94, y+32, {align:'right'});
+  doc.text(rmVal(Math.max(0, grandTotal - paidAmount)), 94, y+32, {align:'right'});
 
   // thank you note on the right
   doc.setDrawColor(...gold);
@@ -1258,8 +1331,8 @@ function buildInvoicePDF(b){
   doc.text('*Bank account details:', 88, y+10);
   doc.setFont('helvetica','normal');
   doc.setFontSize(7.8);
-  doc.text('KERLIP STUDIO ENTERPRISE', 88, y+18);
-  doc.text('8605915158 (CIMB BANK BERHAD)', 88, y+25);
+  doc.text(company.accountName || '—', 88, y+18);
+  doc.text(companyBankLine(company), 88, y+25);
 
   iconCircle(146, y+10, 'T');
   doc.setFont('helvetica','bold');
@@ -1267,7 +1340,7 @@ function buildInvoicePDF(b){
   doc.text('*Terms & Condition:', 154, y+10);
   doc.setFont('helvetica','normal');
   doc.setFontSize(7.8);
-  doc.text('Full payment before event', 154, y+18);
+  doc.text(split(company.terms || 'Full payment before event', 36), 154, y+18);
 
   // ========= FOOTER COMPANY INFO =========
   doc.setFillColor(...black);
@@ -1279,13 +1352,13 @@ function buildInvoicePDF(b){
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold');
   doc.setFontSize(7.4);
-  doc.text('KERLIP STUDIO ENTERPRISE', 12, 274);
+  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 12, 274);
   doc.setFont('helvetica','normal');
   doc.setFontSize(7);
-  doc.text('(003615278-U)', 12, 279);
-  doc.text('36, JALAN ALAM SURIA 16/72', 12, 284);
-  doc.text('SEKSYEN 16 PUNCAK ALAM 42300', 12, 289);
-  doc.text('SELANGOR', 12, 294);
+  doc.text('(' + (company.registrationNo || '—') + ')', 12, 279);
+  doc.text(company.address1 || '—', 12, 284);
+  doc.text(((company.address2 || '') + ' ' + (company.postcode || '')).trim() || '—', 12, 289);
+  doc.text([company.city, company.state].filter(Boolean).join(', ') || '—', 12, 294);
 
   doc.setDrawColor(120,120,120);
   doc.line(82, 272, 82, 292);
@@ -1295,9 +1368,9 @@ function buildInvoicePDF(b){
   doc.text('CONTACT', 90, 274);
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','normal');
-  doc.text('WhatsApp / Phone on file', 90, 280);
-  doc.text('kerlip.studio@gmail.com', 90, 285);
-  doc.text('@kerlip_photobooth', 90, 290);
+  doc.text(company.phone || 'WhatsApp / Phone on file', 90, 280);
+  doc.text(company.email || '—', 90, 285);
+  doc.text(company.website || '@kerlip_photobooth', 90, 290);
 
   doc.setDrawColor(120,120,120);
   doc.line(143, 272, 143, 292);
@@ -1476,7 +1549,7 @@ function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
     ['invoices', I.doc, 'Invoices'], ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
-    ['accounts', I.chart, 'Account Statement'],
+    ['accounts', I.chart, 'Account Statement'], ['settings', I.doc, 'Company e-Invoice'],
   ];
   const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
   return `
@@ -1501,6 +1574,7 @@ function renderMain(){
   if(State.view==='quotations') return renderQuotations();
   if(State.view==='staff') return renderStaff();
   if(State.view==='accounts') return renderAccounts();
+  if(State.view==='settings') return renderSettings();
   return '';
 }
 
@@ -1969,6 +2043,61 @@ function renderStaff(){
   </div>`;
 }
 
+
+/* ======================= COMPANY E-INVOICE SETTINGS VIEW ======================= */
+function renderSettings(){
+  const c = companyProfile();
+  return `
+  <div style="display:grid;grid-template-columns:minmax(0,1.1fr) 360px;gap:18px" class="settings-grid">
+    <div class="card" style="padding:22px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px">
+        <div>
+          <h2 class="page-title" style="font-size:24px;margin:0">Company e-Invoice Profile</h2>
+          <div class="page-subtitle">Update this once. All invoice headers and payment details will follow this information automatically.</div>
+        </div>
+        <button class="btn btn-dark" id="btn-save-company">Save Profile</button>
+      </div>
+      <form id="company-form">
+        <div class="section-kicker">Supplier Details</div>
+        <div class="grid2" style="margin-top:12px">
+          ${COMPANY_FIELDS.map(([key,label,t])=>{
+            const val = esc(c[key]);
+            if(t==='textarea') return `<div class="field" style="grid-column:1/-1"><span class="label">${label}</span><textarea class="input" id="cf-${key}" rows="3">${val}</textarea></div>`;
+            return `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="cf-${key}" value="${val}" ${t==='number'?'step="0.01"':''}></div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:16px;margin-top:8px">
+          <button type="button" class="btn" id="btn-reset-company">Reset Default</button>
+          <button type="submit" class="btn btn-dark">Save Company e-Invoice Info</button>
+        </div>
+      </form>
+    </div>
+    <div class="card" style="padding:22px;align-self:start;position:sticky;top:92px">
+      <div class="section-kicker" style="margin-top:0">Invoice Header Preview</div>
+      <div style="margin-top:16px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--paper)">
+        <div style="background:#111;color:#fff;padding:18px">
+          <div style="font-size:11px;color:#D9B86A;font-weight:800;letter-spacing:.12em">SUPPLIER</div>
+          <div style="font-size:18px;font-weight:850;margin-top:5px">${esc(c.businessName)}</div>
+          <div style="font-size:12px;color:#e5e5e5;margin-top:4px">${esc(c.registrationNo)}</div>
+        </div>
+        <div style="padding:18px;font-size:12.5px;line-height:1.7;color:var(--ink)">
+          <div><strong>TIN:</strong> ${esc(c.tin || '—')}</div>
+          <div><strong>MSIC:</strong> ${esc(c.msicCode || '—')} ${c.businessActivity? '— '+esc(c.businessActivity):''}</div>
+          <div><strong>SST:</strong> ${esc(c.sstNo || 'N/A')}</div>
+          <div><strong>Email:</strong> ${esc(c.email || '—')}</div>
+          <div><strong>Phone:</strong> ${esc(c.phone || '—')}</div>
+          <div style="margin-top:8px"><strong>Address:</strong><br>${esc(companyAddress(c))}</div>
+          <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+          <div><strong>Bank:</strong> ${esc(c.accountName)}</div>
+          <div>${esc(companyBankLine(c))}</div>
+          <div style="margin-top:8px"><strong>Terms:</strong> ${esc(c.terms)}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <style>@media(max-width:980px){.settings-grid{grid-template-columns:1fr !important}.settings-grid .card[style*="sticky"]{position:relative !important;top:auto !important}}</style>`;
+}
+
 /* ======================= ACCOUNT STATEMENT: ENGINE ======================= */
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function zeros(){ return Array(12).fill(0); }
@@ -2305,6 +2434,34 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-del-s]').forEach(el => el.onclick = () => {
     if(confirm('Delete this staff allowance entry?')){ State.staff = State.staff.filter(x=>x.id!==el.dataset.delS); persist('staff'); render(); }
   });
+
+  // Company e-Invoice Settings
+  const companyForm = $('company-form');
+  if(companyForm){
+    companyForm.onsubmit = (e) => {
+      e.preventDefault();
+      const next = { ...companyProfile() };
+      COMPANY_FIELDS.forEach(([key,label,t])=>{
+        const el = $('cf-'+key);
+        if(el) next[key] = t==='number' ? Number(el.value)||0 : el.value;
+      });
+      State.company = next;
+      persist('company');
+      showToast('Company e-Invoice profile saved. All invoice headers will use this information.');
+      render();
+    };
+    const resetBtn = $('btn-reset-company');
+    if(resetBtn) resetBtn.onclick = () => {
+      if(confirm('Reset company profile to Kerlip default details?')){
+        State.company = defaultCompanyProfile();
+        persist('company');
+        showToast('Company profile reset.');
+        render();
+      }
+    };
+    const saveBtn = $('btn-save-company');
+    if(saveBtn) saveBtn.onclick = () => companyForm.requestSubmit();
+  }
 
   // Account Statement
   const accYear = $('acc-year'); if(accYear) accYear.onchange = () => { State.accountsYear = accYear.value; render(); };
