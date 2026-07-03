@@ -590,6 +590,7 @@ function defaultCompanyProfile(){
     accountName:'KERLIP STUDIO ENTERPRISE',
     accountNo:'8605915158',
     invoicePrefix:'INV',
+    invoiceType:'Invoice',
     classificationCode:'',
     taxType:'Not Applicable',
     taxRate:0,
@@ -1111,263 +1112,212 @@ function buildBookingSummaryPDF(b){
 
 function buildInvoicePDF(b){
   const doc = new window.jspdf.jsPDF();
-  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
-  const cForNo = companyProfile();
-  const docNo = (cForNo.invoicePrefix || 'INV') + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
-
-  const pageW = 210;
-  const pageH = 297;
-  const black = [14,14,14];
-  const black2 = [24,24,24];
-  const text = [28,24,21];
-  const muted = [86,78,70];
-  const gold = [190,145,58];
-  const goldDeep = [150,105,28];
-  const line = [224,216,203];
-  const cream = [252,248,240];
-  const cream2 = [246,239,226];
-  const paleGold = [239,211,143];
-  const green = [31,139,83];
-  const total = num(b.jumlahKeseluruhan);
-  const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
-  const balance = Math.max(0, total - paidAmount);
   const company = companyProfile();
+  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
+  const docNo = (company.invoicePrefix || 'INV') + '-' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
+
+  // Premium invoice colours
+  const black = [17,17,17];
+  const text = [35,35,35];
+  const muted = [105,105,105];
+  const gold = [176,138,62];
+  const line = [218,218,218];
+  const soft = [250,250,250];
+  const white = [255,255,255];
+  const green = [31,138,91];
+
+  const total = num(b.jumlahKeseluruhan);
+  const transport = num(b.transportCharges);
+  const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
+  const discount = 0;
   const taxRate = num(company.taxRate);
   const subtotal = total;
   const taxAmount = subtotal * taxRate / 100;
-  const grandTotal = subtotal + taxAmount;
+  const grandTotal = subtotal + taxAmount - discount;
+  const balanceDue = Math.max(0, grandTotal - paidAmount);
 
-  const value = (v) => String(v || '—');
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
+  const today = new Date().toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'});
+  const right = (label, value, y) => {
+    doc.setTextColor(...muted);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.2);
+    doc.text(label, 142, y);
+    doc.setTextColor(...text);
+    doc.setFont('helvetica','normal');
+    doc.text(String(value || '—'), 196, y, {align:'right'});
+  };
+  const section = (title, x, y, w=78) => {
+    doc.setTextColor(...black);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9.5);
+    doc.text(title.toUpperCase(), x, y);
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.35);
+    doc.line(x, y+3, x+w, y+3);
+  };
+  const kv = (label, value, x, y, labelW=31, valueW=52) => {
+    doc.setTextColor(...muted);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.2);
+    doc.text(label, x, y);
+    doc.setTextColor(...text);
+    doc.setFont('helvetica','normal');
+    doc.text(split(value, valueW), x+labelW, y);
+  };
 
-  // ========= TOP AREA — LHDN STYLE COMPANY HEADER =========
-  // No logo used here. Invoice header pulls company details from the Company e-Invoice tab.
+  // ================= HEADER =================
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(18);
-  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 13, 15);
+  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 14, 18);
 
-  doc.setTextColor(...muted);
+  doc.setFontSize(9);
   doc.setFont('helvetica','normal');
+  doc.setTextColor(...muted);
+  if(company.registrationNo){ doc.text('(' + company.registrationNo + ')', 14, 25); }
+
+  let cy = 34;
   doc.setFontSize(8.4);
-  let companyY = 23;
-  const addressLines = split(company.address || '—', 96);
-  doc.text(addressLines, 13, companyY);
-  companyY += (addressLines.length * 4.2) + 3;
-  doc.text('Email: ' + (company.email || '—'), 13, companyY); companyY += 5;
-  doc.text('Business Registration No.: ' + (company.registrationNo || '—'), 13, companyY); companyY += 5;
-  doc.text('TIN No.: ' + (company.tin || '—'), 13, companyY);
+  const address = company.address || '36, Jalan Alam Suria 16/72\nSeksyen 16\n42300 Puncak Alam\nSelangor, Malaysia';
+  const addressLines = String(address).split('\n').flatMap(line => split(line, 88));
+  doc.text(addressLines, 14, cy);
+  cy += addressLines.length * 4.2 + 4;
+  doc.text('Email: ' + (company.email || 'photoboothkerlip@gmail.com'), 14, cy); cy += 4.6;
+  doc.text('Business Registration: ' + (company.registrationNo || '003615278-U'), 14, cy); cy += 4.6;
+  doc.text('TIN No: ' + (company.tin || '—'), 14, cy);
 
-  // No divider line under supplier details for a cleaner e-Invoice header.
-
-  // right premium invoice badge / header — moved higher
-  doc.setFillColor(...black);
-  doc.roundedRect(122, 0, 88, 32, 0, 0, 'F');
   doc.setTextColor(...gold);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(29);
-  doc.text('INVOICE', 166, 20, {align:'center'});
-  doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9.5);
-  doc.text('INVOICE NO:', 126, 43);
-  doc.text('DATE:', 126, 53);
-  doc.setFont('helvetica','normal');
-  doc.text(docNo, 196, 43, {align:'right'});
-  doc.text(new Date().toLocaleDateString('en-MY'), 196, 53, {align:'right'});
-  doc.setFontSize(7.2);
-  doc.setTextColor(...muted);
-  doc.text('TYPE: ' + (company.invoiceType || 'Invoice'), 196, 62, {align:'right'});
+  doc.setFontSize(29);
+  doc.text('INVOICE', 196, 18, {align:'right'});
 
-  // ========= HELPERS =========
-  const iconCircle = (x,y,label) => {
-    doc.setFillColor(...gold);
-    doc.circle(x, y, 4.2, 'F');
-    doc.setTextColor(255,255,255);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(7);
-    doc.text(label, x, y+2.2, {align:'center'});
-  };
-  const sectionTitle = (label, y, icon) => {
-    iconCircle(13.5, y-1.5, icon);
-    doc.setTextColor(...goldDeep);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(10.5);
-    doc.text(label.toUpperCase(), 21, y);
-  };
-  const box = (x,y,w,h,fill=cream) => {
-    doc.setFillColor(...fill);
-    doc.setDrawColor(...line);
-    doc.setLineWidth(0.2);
-    doc.roundedRect(x,y,w,h,2,2,'FD');
-  };
-  const kv = (label, val, x, y, maxW=54) => {
-    doc.setTextColor(...text);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(8.5);
-    doc.text(label, x, y);
-    doc.text(':', x+36, y);
-    doc.setFont('helvetica','normal');
-    const lines = split(val, maxW);
-    doc.text(lines, x+42, y);
-  };
+  right('Invoice No', docNo, 34);
+  right('Invoice Date', today, 42);
+  right('Due Date', today, 50);
+  right('Status', b.paymentStatus || '—', 58);
+  right('Payment', b.paymentStatus === 'Paid' ? 'Paid' : 'Pending', 66);
 
-  // ========= CLIENT DETAILS =========
-  let y = 82;
-  sectionTitle('Client Details', y, 'C');
-  y += 5;
-  box(10, y, 190, 30, [255,253,249]);
-  doc.setDrawColor(...line);
-  doc.line(105, y+4, 105, y+26);
+  // ================= CLIENT / EVENT INFO =================
+  let y = 84;
+  section('Client Information', 14, y, 78);
+  section('Event Information', 112, y, 84);
+  y += 13;
 
-  kv('Client Name', b.namaClient, 16, y+8);
-  kv('Client Phone', b.noHpClient, 16, y+16);
-  kv('Buyer TIN', b.buyerTin || '—', 16, y+24);
+  kv('Name', b.namaClient || '—', 14, y);                         kv('Booking No', b.bookingNo || b.quotationRef || '—', 112, y, 34, 48);
+  kv('Company', b.buyerCompany || b.namaClient || '—', 14, y+9);   kv('Event Type', b.jenisEvent || '—', 112, y+9, 34, 48);
+  kv('Phone', b.noHpClient || '—', 14, y+18);                     kv('Event Date', displayDate(b.tarikhEvent), 112, y+18, 34, 48);
+  kv('Email', b.buyerEmail || '—', 14, y+27);                     kv('Event Time', b.waktuEvent || 'TBC', 112, y+27, 34, 48);
+  kv('TIN', b.buyerTin || '—', 14, y+36);                         kv('Venue', b.lokasiEvent || '—', 112, y+36, 34, 48);
+  kv('Address', b.buyerAddress || b.lokasiEvent || '—', 14, y+45, 31, 54);
+  kv('Contact', b.namaCP || '—', 112, y+45, 34, 48);
+  kv('Contact No', b.noHpCP || '—', 112, y+54, 34, 48);
 
-  kv('Booking Status', b.bookingStatus, 112, y+8);
-  kv('Payment Status', b.paymentStatus, 112, y+16);
-  kv('Reg / ID No', b.buyerRegistrationNo || '—', 112, y+24, 45);
+  // ================= SERVICES TABLE =================
+  y = 160;
+  section('Services', 14, y, 182);
+  y += 8;
+  const serviceAmount = Math.max(0, total - transport);
+  const rows = [
+    ['1', b.pakej || 'Photobooth Package', '1', rmVal(serviceAmount), rmVal(taxAmount), rmVal(serviceAmount)],
+    ['2', 'Transportation', '1', transport ? rmVal(transport) : 'RM0.00', 'RM0.00', transport ? rmVal(transport) : 'RM0.00'],
+    ['3', 'Premium Fabric Backdrop', '1', b.backdrop ? 'Included' : 'Included', 'RM0.00', 'RM0.00'],
+  ];
+  if((b.pakejTambahan || '').trim() && (b.pakejTambahan || '').trim().toUpperCase() !== 'N/A'){
+    rows.push(['4', b.pakejTambahan, '1', 'Included', 'RM0.00', 'RM0.00']);
+  }
 
-  // ========= EVENT DETAILS =========
-  y += 42;
-  sectionTitle('Event Details', y, 'E');
-  y += 5;
-  box(10, y, 190, 25, [255,253,249]);
-  doc.line(105, y+4, 105, y+21);
-  kv('Event Date', displayDate(b.tarikhEvent), 16, y+9);
-  kv('Event Time', b.waktuEvent || 'TBC', 16, y+17);
-  kv('Location', b.lokasiEvent, 112, y+9, 58);
-
-  // ========= PACKAGE DETAILS =========
-  y += 38;
-  sectionTitle('Package Details', y, 'P');
-  y += 5;
   doc.autoTable({
     startY:y,
+    margin:{left:14,right:14},
     theme:'grid',
-    margin:{left:10,right:10},
-    head:[['Description','Class. Code','Qty','Unit Price','Tax','Amount']],
-    body:[
-      [b.pakej || 'Photobooth Package', company.classificationCode || '—', '1', rmVal(total - num(b.transportCharges)), `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(total - num(b.transportCharges))],
-      ['Backdrop: ' + (b.backdrop || 'Standard / Selected'), company.classificationCode || '—', '1', 'Included', `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(0)],
-      ['Add-On: ' + (b.pakejTambahan || 'N/A'), company.classificationCode || '—', '1', 'Included', `${company.taxType || 'N/A'} ${taxRate}%`, rmVal(0)],
-      ['Transportation Charges', company.classificationCode || '—', '1', num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A', `${company.taxType || 'N/A'} ${taxRate}%`, num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A']
-    ],
-    headStyles:{fillColor:black, textColor:[238,200,120], fontStyle:'bold', fontSize:7.5},
-    styles:{fontSize:7.6, cellPadding:2.7, lineColor:line, lineWidth:0.2, textColor:text},
-    columnStyles:{0:{cellWidth:60,fontStyle:'bold'},1:{cellWidth:25},2:{cellWidth:14,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'center'},5:{cellWidth:31,halign:'right'}},
+    head:[['No','Description','Qty','Unit Price','Tax','Amount']],
+    body:rows,
+    headStyles:{fillColor:gold, textColor:white, fontStyle:'bold', fontSize:8.4, halign:'center'},
+    styles:{fontSize:8.2, cellPadding:3.2, lineColor:line, lineWidth:0.25, textColor:text},
+    alternateRowStyles:{fillColor:soft},
+    columnStyles:{
+      0:{cellWidth:12,halign:'center'},
+      1:{cellWidth:80,fontStyle:'bold'},
+      2:{cellWidth:14,halign:'center'},
+      3:{cellWidth:28,halign:'right'},
+      4:{cellWidth:22,halign:'right'},
+      5:{cellWidth:26,halign:'right',fontStyle:'bold'},
+    }
   });
 
-  // ========= PAYMENT SUMMARY + THANK YOU =========
-  y = doc.lastAutoTable.finalY + 8;
-  sectionTitle('Payment Summary', y, 'RM');
-  y += 6;
-  box(10, y, 90, 36, [255,253,249]);
-
+  // ================= PAYMENT SUMMARY RIGHT ALIGNED =================
+  y = doc.lastAutoTable.finalY + 12;
+  doc.setTextColor(...black);
+  doc.setFont('helvetica','bold');
   doc.setFontSize(9.5);
+  doc.text('PAYMENT SUMMARY', 196, y, {align:'right'});
+  y += 5;
+
+  doc.autoTable({
+    startY:y,
+    margin:{left:112,right:14},
+    theme:'grid',
+    body:[
+      ['Subtotal', rmVal(subtotal)],
+      ['Discount', rmVal(discount)],
+      ['Tax', rmVal(taxAmount)],
+      ['Deposit Paid', rmVal(paidAmount)],
+      ['TOTAL DUE', rmVal(balanceDue)],
+    ],
+    styles:{fontSize:8.7, cellPadding:3.1, lineColor:line, lineWidth:0.25, textColor:text},
+    columnStyles:{0:{cellWidth:42,fontStyle:'bold'},1:{cellWidth:42,halign:'right',fontStyle:'bold'}},
+    didParseCell:function(data){
+      if(data.row.index === 4){
+        data.cell.styles.fillColor = black;
+        data.cell.styles.textColor = white;
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 9.2;
+        data.cell.styles.cellPadding = 4;
+      }
+    }
+  });
+
+  // ================= PAYMENT DETAILS / TERMS =================
+  y = doc.lastAutoTable.finalY + 16;
+  if(y > 252){ doc.addPage(); y = 20; }
+  section('Payment Details', 14, y, 78);
+  section('Terms & Conditions', 112, y, 84);
+  y += 12;
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica','bold');
+  doc.text('Bank', 14, y);
+  doc.text('Account Name', 14, y+9);
+  doc.text('Account Number', 14, y+22);
+  doc.text('Reference', 14, y+31);
+
   doc.setTextColor(...text);
   doc.setFont('helvetica','normal');
-  doc.text('SUBTOTAL', 16, y+7);
-  doc.text('TAX AMOUNT', 16, y+15);
-  doc.text('DEPOSIT PAID', 16, y+23);
-  doc.setFont('helvetica','bold');
-  doc.text(rmVal(subtotal), 94, y+7, {align:'right'});
-  doc.text(rmVal(taxAmount), 94, y+15, {align:'right'});
-  doc.text(rmVal(paidAmount), 94, y+23, {align:'right'});
+  doc.text(company.bankName || 'CIMB BANK BERHAD', 50, y);
+  doc.text(company.accountName || company.businessName || 'KERLIP STUDIO ENTERPRISE', 50, y+9);
+  doc.text(company.accountNo || '8605915158', 50, y+22);
+  doc.text(docNo, 50, y+31);
 
-  doc.setFillColor(...paleGold);
-  doc.rect(10, y+25, 90, 11, 'F');
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(...black);
-  doc.text('BALANCE DUE', 16, y+32);
-  doc.text(rmVal(Math.max(0, grandTotal - paidAmount)), 94, y+32, {align:'right'});
-
-  // thank you note on the right
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(0.5);
-  doc.line(113, y+2, 143, y+2);
-  doc.setTextColor(...goldDeep);
-  doc.setFont('times','italic');
-  doc.setFontSize(18);
-  doc.text('Thank You!', 113, y+12);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8);
   doc.setTextColor(...text);
-  doc.text('Thank you for choosing Kerlip Photobooth.', 113, y+23);
-  doc.text('We look forward to being part of your special day.', 113, y+29);
+  const terms = company.terms || '• Full payment before event.\n• Booking is confirmed upon payment.\n• Additional charges apply for overtime.\n• This invoice is computer generated.';
+  const termLines = String(terms).split('\n').flatMap(t => split(t, 80));
+  doc.text(termLines, 112, y);
 
-  // ========= REQUIRED INFO BOX =========
-  y += 49;
-  box(10, y, 190, 37, cream2);
+  // ================= FOOTER =================
   doc.setDrawColor(...line);
-  doc.line(72, y+6, 72, y+31);
-  doc.line(138, y+6, 138, y+31);
-
-  iconCircle(18, y+10, 'i');
+  doc.setLineWidth(0.35);
+  doc.line(14, 274, 196, 274);
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(8.2);
-  doc.text('*Event details:', 26, y+10);
+  doc.setFontSize(9);
+  doc.text('Thank you for choosing Kerlip Photobooth', 105, 281, {align:'center'});
+  doc.setTextColor(...muted);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.8);
-  doc.text(`Event Date : ${displayDate(b.tarikhEvent)}`, 26, y+17);
-  const locLines = split(`Location : ${b.lokasiEvent || '—'}`, 42);
-  doc.text(locLines, 26, y+24);
-
-  iconCircle(80, y+10, 'B');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8.2);
-  doc.text('*Bank account details:', 88, y+10);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7.8);
-  doc.text(company.accountName || '—', 88, y+18);
-  doc.text(companyBankLine(company), 88, y+25);
-
-  iconCircle(146, y+10, 'T');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(8.2);
-  doc.text('*Terms & Condition:', 154, y+10);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7.8);
-  doc.text(split(company.terms || 'Full payment before event', 36), 154, y+18);
-
-  // ========= FOOTER COMPANY INFO =========
-  doc.setFillColor(...black);
-  doc.roundedRect(0, 266, 210, 31, 0, 0, 'F');
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(0.6);
-  doc.line(0, 266, 210, 266);
-
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(7.4);
-  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 12, 274);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7);
-  doc.text('(' + (company.registrationNo || '—') + ')', 12, 279);
-  doc.text(company.address1 || '—', 12, 284);
-  doc.text(((company.address2 || '') + ' ' + (company.postcode || '')).trim() || '—', 12, 289);
-  doc.text([company.city, company.state].filter(Boolean).join(', ') || '—', 12, 294);
-
-  doc.setDrawColor(120,120,120);
-  doc.line(82, 272, 82, 292);
-  doc.setTextColor(...gold);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(7.2);
-  doc.text('CONTACT', 90, 274);
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','normal');
-  doc.text(company.phone || 'WhatsApp / Phone on file', 90, 280);
-  doc.text(company.email || '—', 90, 285);
-  doc.text(company.website || '@kerlip_photobooth', 90, 290);
-
-  doc.setDrawColor(120,120,120);
-  doc.line(143, 272, 143, 292);
-  doc.setTextColor(...gold);
-  doc.setFont('times','italic');
-  doc.setFontSize(13);
-  doc.text("Let's Capture", 154, 278);
-  doc.text('Your Best Moments.', 154, 287);
+  doc.setFontSize(7.6);
+  doc.text('Kuala Lumpur • Selangor • Generated on ' + today + ' • Page 1 of 1', 105, 287, {align:'center'});
 
   return doc;
 }
