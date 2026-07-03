@@ -495,6 +495,123 @@ body.light .event-status{
 .pdf-logo-note{display:none;}
 @media(max-width:768px){.brand-logo-wrap{width:92px}.brand-logo-wrap img{width:92px}.login-brand-logo{width:150px}}
 
+
+
+/* ======================= MOBILE FORM SIZE FIX ======================= */
+/* Fix iPhone Safari zoom + oversized booking entry fields */
+@media (max-width: 768px){
+  body{
+    font-size:13px;
+    overflow-x:hidden;
+  }
+
+  .content{
+    padding:14px 12px 28px !important;
+  }
+
+  .modal{
+    width:100% !important;
+    max-width:100% !important;
+    border-radius:22px 22px 0 0 !important;
+    margin-top:20px !important;
+  }
+
+  .modal > div:first-child{
+    padding:12px 14px !important;
+  }
+
+  #entity-form,
+  #company-form{
+    padding:14px !important;
+  }
+
+  .grid2{
+    grid-template-columns:1fr !important;
+    gap:0 !important;
+  }
+
+  .field{
+    margin-bottom:10px !important;
+    gap:1px !important;
+  }
+
+  .label{
+    font-size:10px !important;
+    line-height:1.2 !important;
+    margin-bottom:5px !important;
+    letter-spacing:.055em !important;
+  }
+
+  .input,
+  input.input,
+  select.input{
+    min-height:44px !important;
+    height:44px !important;
+    padding:9px 12px !important;
+    font-size:16px !important; /* prevents iPhone auto-zoom */
+    line-height:1.25 !important;
+    border-radius:14px !important;
+  }
+
+  textarea.input{
+    min-height:78px !important;
+    height:auto !important;
+    padding:10px 12px !important;
+    font-size:16px !important;
+    line-height:1.35 !important;
+    border-radius:14px !important;
+  }
+
+  /* Auto value boxes such as Balance, Total Amount */
+  div.input{
+    display:flex !important;
+    align-items:center !important;
+    min-height:44px !important;
+    height:44px !important;
+    padding:9px 12px !important;
+    font-size:16px !important;
+  }
+
+  .btn{
+    padding:9px 12px !important;
+    font-size:12px !important;
+  }
+
+  .btn-ghost{
+    padding:8px !important;
+  }
+
+  table{
+    font-size:12px !important;
+    min-width:760px !important;
+  }
+
+  th{
+    padding:10px 12px !important;
+    font-size:9.5px !important;
+  }
+
+  td{
+    padding:11px 12px !important;
+    font-size:12px !important;
+  }
+}
+
+@media (max-width: 420px){
+  .page-title{
+    font-size:23px !important;
+  }
+
+  .sidebar{
+    padding:10px !important;
+  }
+
+  .navitem{
+    padding:10px 12px !important;
+    font-size:12px !important;
+  }
+}
+
 </style>
 </head>
 <body>
