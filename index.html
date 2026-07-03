@@ -1141,54 +1141,44 @@ function buildInvoicePDF(b){
   const value = (v) => String(v || '—');
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
 
-  // ========= TOP AREA =========
-  try{
-    doc.addImage(KERLIP_LOGO, 'PNG', 10, 8, 76, 40);
-  }catch(e){
-    doc.setTextColor(...black);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(30);
-    doc.text('KERLIP', 12, 25);
-    doc.setFontSize(7);
-    doc.text('PHOTOBOOTH', 22, 33);
-  }
+  // ========= TOP AREA — LHDN STYLE COMPANY HEADER =========
+  // No logo used here. Invoice header pulls company details from the Company e-Invoice tab.
+  doc.setTextColor(...black);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 13, 15);
 
   doc.setTextColor(...muted);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8.5);
-  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 13, 51);
-  doc.text('BRN: ' + (company.registrationNo || '—') + '   TIN: ' + (company.tin || '—'), 13, 56);
-  doc.text('MSIC: ' + (company.msicCode || '—') + ' - ' + (company.businessActivity || '—'), 13, 61);
+  doc.setFontSize(8.4);
+  let companyY = 23;
+  const addressLines = split(company.address || '—', 96);
+  doc.text(addressLines, 13, companyY);
+  companyY += (addressLines.length * 4.2) + 3;
+  doc.text('Email: ' + (company.email || '—'), 13, companyY); companyY += 5;
+  doc.text('Business Registration No.: ' + (company.registrationNo || '—'), 13, companyY); companyY += 5;
+  doc.text('TIN No.: ' + (company.tin || '—'), 13, companyY);
 
-  // right premium invoice badge / header
+  // No divider line under supplier details for a cleaner e-Invoice header.
+
+  // right premium invoice badge / header — moved higher
   doc.setFillColor(...black);
-  doc.roundedRect(122, 0, 88, 35, 0, 0, 'F');
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(1.2);
-  doc.line(123, 35, 210, 35);
-
+  doc.roundedRect(122, 0, 88, 32, 0, 0, 'F');
   doc.setTextColor(...gold);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(28);
-  doc.text('INVOICE', 166, 19, {align:'center'});
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(7.5);
-  doc.text('Premium Moments, Beautifully Captured.', 166, 27, {align:'center'});
-
+  doc.setFontSize(29);
+  doc.text('INVOICE', 166, 20, {align:'center'});
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(9.5);
-  doc.text('INVOICE NO:', 126, 48);
-  doc.text('DATE:', 126, 58);
+  doc.text('INVOICE NO:', 126, 43);
+  doc.text('DATE:', 126, 53);
   doc.setFont('helvetica','normal');
-  doc.text(docNo, 196, 48, {align:'right'});
-  doc.text(new Date().toLocaleDateString('en-MY'), 196, 58, {align:'right'});
+  doc.text(docNo, 196, 43, {align:'right'});
+  doc.text(new Date().toLocaleDateString('en-MY'), 196, 53, {align:'right'});
   doc.setFontSize(7.2);
   doc.setTextColor(...muted);
-  doc.text('TYPE: ' + (company.invoiceType || 'Invoice'), 196, 67, {align:'right'});
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(0.5);
-  doc.line(126, 63, 196, 63);
+  doc.text('TYPE: ' + (company.invoiceType || 'Invoice'), 196, 62, {align:'right'});
 
   // ========= HELPERS =========
   const iconCircle = (x,y,label) => {
