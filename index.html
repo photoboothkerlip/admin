@@ -497,12 +497,11 @@ body.light .event-status{
 
 
 
+
 /* =========================================================
-   KERLIP MOBILE SIDE DRAWER + COMPACT FORM FIX
-   Added to solve large mobile form entries and provide side slider
+   KERLIP MOBILE SIDE DRAWER FIX - SAFE VERSION
    ========================================================= */
 
-/* Desktop / default side drawer */
 .modal-bg{
   position:fixed !important;
   inset:0 !important;
@@ -511,9 +510,9 @@ body.light .event-status{
   justify-content:flex-end !important;
   align-items:stretch !important;
   padding:0 !important;
+  overflow:hidden !important;
   z-index:60 !important;
   backdrop-filter:blur(10px) !important;
-  overflow:hidden !important;
 }
 
 .modal{
@@ -521,67 +520,33 @@ body.light .event-status{
   max-width:720px !important;
   height:100vh !important;
   min-height:100vh !important;
+  max-height:100vh !important;
   margin:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  background:linear-gradient(180deg,#0B1626,#07111F) !important;
-  border-left:1px solid rgba(148,163,184,.16) !important;
   border-radius:30px 0 0 30px !important;
-  box-shadow:-35px 0 100px rgba(0,0,0,.46) !important;
-  animation:slideIn .24s ease !important;
-  padding-bottom:40px !important;
   -webkit-overflow-scrolling:touch !important;
 }
 
-body.light .modal{
-  background:rgba(255,253,249,.98) !important;
-  color:#2F241F !important;
-  border-left:1px solid rgba(91,51,36,.10) !important;
-  box-shadow:-24px 0 70px rgba(91,51,36,.18) !important;
-}
-
-/* Mobile side slider */
 @media(max-width:768px){
-  body{
-    overflow-x:hidden !important;
-  }
-
-  .modal-bg{
-    align-items:stretch !important;
-    justify-content:flex-end !important;
-    padding:0 !important;
-    overflow:hidden !important;
-  }
-
   .modal{
     width:92vw !important;
     max-width:92vw !important;
-    height:100vh !important;
-    min-height:100vh !important;
-    max-height:100vh !important;
-    margin:0 !important;
     border-radius:24px 0 0 24px !important;
-    overflow-y:auto !important;
-    overflow-x:hidden !important;
-    -webkit-overflow-scrolling:touch !important;
-    padding-bottom:90px !important;
+    padding-bottom:80px !important;
   }
 
   .grid2{
     grid-template-columns:1fr !important;
-    gap:0 !important;
   }
 
   .field{
     margin-bottom:10px !important;
-    gap:0 !important;
   }
 
   .label{
     font-size:10px !important;
-    line-height:1.15 !important;
     margin-bottom:4px !important;
-    letter-spacing:.055em !important;
   }
 
   .input,
@@ -599,36 +564,11 @@ body.light .modal{
   textarea.input{
     height:80px !important;
     min-height:80px !important;
-    max-height:110px !important;
+    max-height:120px !important;
     padding:10px 13px !important;
     font-size:16px !important;
     line-height:1.35 !important;
-    resize:vertical !important;
   }
-
-  .modal form,
-  .modal .grid2,
-  .modal [style*="padding:24px"],
-  .modal [style*="padding: 24px"]{
-    padding-left:14px !important;
-    padding-right:14px !important;
-  }
-
-  .modal .btn{
-    padding:10px 13px !important;
-    font-size:12px !important;
-  }
-
-  .modal h2,
-  .modal h3{
-    font-size:20px !important;
-    line-height:1.15 !important;
-  }
-}
-
-@keyframes slideIn{
-  from{transform:translateX(38px);opacity:.35}
-  to{transform:translateX(0);opacity:1}
 }
 
 </style>
