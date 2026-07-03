@@ -922,14 +922,14 @@ function signatureBlock(doc, y){
 function termsBlock(doc, y){
   if(y > 250) { doc.addPage(); y = 20; }
   y = docSectionTitle(doc,'Terms & Conditions',y);
-  doc.setFontSize(7.5); doc.setTextColor(90,84,74);
+  doc.setFontSize(7.9); doc.setTextColor(90,84,74);
   const lines = doc.splitTextToSize(TERMS,178);
   doc.text(lines,16,y);
   return y + lines.length*3.6 + 6;
 }
 function footerNote(doc){
   const h = doc.internal.pageSize.getHeight();
-  doc.setFontSize(7.5); doc.setTextColor(138,129,114);
+  doc.setFontSize(7.9); doc.setTextColor(138,129,114);
   doc.text('Kerlip Photobooth · WhatsApp / Phone on file · Thank you for choosing us for your event.',105,h-10,{align:'center'});
 }
 
@@ -1021,7 +1021,7 @@ function buildQuotationPDF(q){
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold'); doc.setFontSize(8.2);
   doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE',14,40);
-  doc.setFontSize(7.5); doc.text('('+(company.registrationNo || '003615278-U')+')',14,45);
+  doc.setFontSize(7.9); doc.text('('+(company.registrationNo || '003615278-U')+')',14,45);
   doc.setFont('helvetica','normal'); doc.setFontSize(7.4);
   const addr = [company.address1, company.address2, [company.postcode,company.city].filter(Boolean).join(' '), company.state, company.country].filter(Boolean).join('\n') || '36, Jalan Alam Suria 16/72\nSeksyen 16, 42300 Puncak Alam\nSelangor, Malaysia';
   const addrLines = String(addr).split('\n').flatMap(l=>split(l,70));
@@ -1213,20 +1213,27 @@ function buildBookingSummaryPDF(b){
 }
 
 function buildInvoicePDF(b){
-  const doc = new window.jspdf.jsPDF();
+  const doc = new window.jspdf.jsPDF('p','mm','a4');
   const company = companyProfile();
   const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
   const docNo = (company.invoicePrefix || 'INV') + '-' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
 
-  // Premium invoice colours
-  const black = [17,17,17];
+  // One-page premium invoice colours - high contrast black text update
+  const black = [0,0,0];
   const text = [0,0,0];
   const muted = [0,0,0];
+  const softMuted = [25,25,25];
   const gold = [176,138,62];
-  const line = [218,218,218];
+  const line = [185,185,185];
   const soft = [250,250,250];
   const white = [255,255,255];
   const green = [31,138,91];
+
+  const pageW = 210;
+  const left = 14;
+  const right = 196;
+  const usableW = right - left;
+  const today = new Date().toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'});
 
   const total = num(b.jumlahKeseluruhan);
   const transport = num(b.transportCharges);
@@ -1237,192 +1244,248 @@ function buildInvoicePDF(b){
   const taxAmount = subtotal * taxRate / 100;
   const grandTotal = subtotal + taxAmount - discount;
   const balanceDue = Math.max(0, grandTotal - paidAmount);
+  const serviceAmount = Math.max(0, total - transport);
 
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
-  const today = new Date().toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'});
-  const right = (label, value, y) => {
-    doc.setTextColor(...muted);
+  const clean = (v) => String(v || '—').replace(/\s+/g,' ').trim();
+  const short = (v, max=70) => {
+    const s = clean(v);
+    return s.length > max ? s.slice(0,max-1) + '…' : s;
+  };
+  const rightInfo = (label, value, y) => {
+    doc.setTextColor(...softMuted);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(8.2);
-    doc.text(label, 142, y);
+    doc.setFontSize(8.1);
+    doc.text(label, 139, y);
     doc.setTextColor(...text);
     doc.setFont('helvetica','normal');
-    doc.text(String(value || '—'), 196, y, {align:'right'});
+    doc.setFontSize(8.1);
+    doc.text(String(value || '—'), right, y, {align:'right'});
   };
-  const section = (title, x, y, w=78) => {
+  const sectionTitle = (title, x, y, w) => {
     doc.setTextColor(...black);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(9.5);
+    doc.setFontSize(8.9);
     doc.text(title.toUpperCase(), x, y);
-    doc.setDrawColor(...line);
-    doc.setLineWidth(0.35);
-    doc.line(x, y+3, x+w, y+3);
+    doc.setDrawColor(...gold);
+    doc.setLineWidth(0.45);
+    doc.line(x, y+2.8, x+w, y+2.8);
   };
-  const kv = (label, value, x, y, labelW=31, valueW=52) => {
-    doc.setTextColor(...muted);
+  const smallLabel = (label, value, x, y, labelW=24, valueW=54) => {
+    doc.setTextColor(...softMuted);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(8.2);
+    doc.setFontSize(7.8);
     doc.text(label, x, y);
     doc.setTextColor(...text);
     doc.setFont('helvetica','normal');
-    doc.text(split(value, valueW), x+labelW, y);
+    doc.setFontSize(7.8);
+    doc.text(split(value, valueW).slice(0,2), x+labelW, y);
   };
 
-  // ================= HEADER =================
+  // ================= COMPACT HEADER =================
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(18);
-  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', 14, 18);
+  doc.setFontSize(17.5);
+  doc.text(company.businessName || 'KERLIP STUDIO ENTERPRISE', left, 16);
 
-  doc.setFontSize(9);
   doc.setFont('helvetica','normal');
+  doc.setFontSize(8.1);
   doc.setTextColor(...muted);
-  if(company.registrationNo){ doc.text('(' + company.registrationNo + ')', 14, 25); }
+  if(company.registrationNo){ doc.text('(' + company.registrationNo + ')', left, 22); }
 
-  let cy = 34;
-  doc.setFontSize(8.4);
-  const address = company.address || '36, Jalan Alam Suria 16/72\nSeksyen 16\n42300 Puncak Alam\nSelangor, Malaysia';
-  const addressLines = String(address).split('\n').flatMap(line => split(line, 88));
-  doc.text(addressLines, 14, cy);
-  cy += addressLines.length * 4.2 + 4;
-  doc.text('Email: ' + (company.email || 'photoboothkerlip@gmail.com'), 14, cy); cy += 4.6;
-  doc.text('Business Registration: ' + (company.registrationNo || '003615278-U'), 14, cy); cy += 4.6;
-  doc.text('TIN No: ' + (company.tin || '—'), 14, cy);
+  let cy = 28;
+  const addressText = companyAddress(company) || '36, Jalan Alam Suria 16/72, Seksyen 16, 42300 Puncak Alam, Selangor, Malaysia';
+  const addressLines = split(addressText, 92).slice(0,3);
+  doc.text(addressLines, left, cy);
+  cy += addressLines.length * 3.7 + 1.8;
+  doc.text('Email: ' + (company.email || 'photoboothkerlip@gmail.com') + '   Phone: ' + (company.phone || '—'), left, cy);
+  cy += 3.8;
+  doc.text('Business Registration: ' + (company.registrationNo || '003615278-U') + '   TIN: ' + (company.tin || '—'), left, cy);
 
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(29);
-  doc.text('INVOICE', 196, 18, {align:'right'});
+  doc.setFontSize(28);
+  doc.text('INVOICE', right, 16, {align:'right'});
+  rightInfo('Invoice No', docNo, 29);
+  rightInfo('Invoice Date', today, 36);
+  rightInfo('Due Date', displayDate(b.tarikhEvent) || today, 43);
+  rightInfo('Status', b.paymentStatus || '—', 50);
 
-  right('Invoice No', docNo, 34);
-  right('Invoice Date', today, 42);
-  right('Due Date', today, 50);
-  right('Status', b.paymentStatus || '—', 58);
-  right('Payment', b.paymentStatus === 'Paid' ? 'Paid' : 'Pending', 66);
+  doc.setDrawColor(...line);
+  doc.setLineWidth(0.35);
+  doc.line(left, 58, right, 58);
 
-  // ================= CLIENT / EVENT INFO =================
-  let y = 84;
-  section('Client Information', 14, y, 78);
-  section('Event Information', 112, y, 84);
-  y += 13;
+  // ================= CLIENT + EVENT BOXES =================
+  const boxY = 65;
+  const boxH = 43;
+  const colW = 86;
+  doc.setFillColor(...soft);
+  doc.roundedRect(left, boxY, colW, boxH, 2.5, 2.5, 'F');
+  doc.roundedRect(110, boxY, 86, boxH, 2.5, 2.5, 'F');
+  doc.setDrawColor(...line);
+  doc.roundedRect(left, boxY, colW, boxH, 2.5, 2.5, 'S');
+  doc.roundedRect(110, boxY, 86, boxH, 2.5, 2.5, 'S');
 
-  kv('Name', b.namaClient || '—', 14, y);                         kv('Booking No', b.bookingNo || b.quotationRef || '—', 112, y, 34, 48);
-  kv('Company', b.buyerCompany || b.namaClient || '—', 14, y+9);   kv('Event Type', b.jenisEvent || '—', 112, y+9, 34, 48);
-  kv('Phone', b.noHpClient || '—', 14, y+18);                     kv('Event Date', displayDate(b.tarikhEvent), 112, y+18, 34, 48);
-  kv('Email', b.buyerEmail || '—', 14, y+27);                     kv('Event Time', b.waktuEvent || 'TBC', 112, y+27, 34, 48);
-  kv('TIN', b.buyerTin || '—', 14, y+36);                         kv('Venue', b.lokasiEvent || '—', 112, y+36, 34, 48);
-  kv('Address', b.buyerAddress || b.lokasiEvent || '—', 14, y+45, 31, 54);
-  kv('Contact', b.namaCP || '—', 112, y+45, 34, 48);
-  kv('Contact No', b.noHpCP || '—', 112, y+54, 34, 48);
+  sectionTitle('Bill To', left+4, boxY+7, 76);
+  sectionTitle('Event Details', 114, boxY+7, 76);
 
-  // ================= SERVICES TABLE =================
-  y = 160;
-  section('Services', 14, y, 182);
-  y += 8;
-  const serviceAmount = Math.max(0, total - transport);
+  let iy = boxY + 15;
+  smallLabel('Name', b.namaClient || '—', left+4, iy, 22, 55);
+  smallLabel('Company', b.buyerCompany || b.namaClient || '—', left+4, iy+6.3, 22, 55);
+  smallLabel('Phone', b.noHpClient || '—', left+4, iy+12.6, 22, 55);
+  smallLabel('Email', b.buyerEmail || '—', left+4, iy+18.9, 22, 55);
+  smallLabel('TIN', b.buyerTin || '—', left+4, iy+25.2, 22, 55);
+
+  smallLabel('Booking No', b.bookingNo || b.quotationRef || '—', 114, iy, 30, 46);
+  smallLabel('Event', b.jenisEvent || '—', 114, iy+6.3, 30, 46);
+  smallLabel('Date', displayDate(b.tarikhEvent), 114, iy+12.6, 30, 46);
+  smallLabel('Time', b.waktuEvent || 'TBC', 114, iy+18.9, 30, 46);
+  smallLabel('Venue', b.lokasiEvent || '—', 114, iy+25.2, 30, 46);
+  smallLabel('Contact', b.namaCP || b.noHpCP || '—', 114, iy+31.5, 30, 46);
+
+  // ================= SERVICES =================
+  let y = 117;
+  sectionTitle('Services', left, y, usableW);
+  y += 5.2;
+
   const rows = [
-    ['1', b.pakej || 'Photobooth Package', '1', rmVal(serviceAmount), rmVal(taxAmount), rmVal(serviceAmount)],
-    ['2', 'Transportation', '1', transport ? rmVal(transport) : 'RM0.00', 'RM0.00', transport ? rmVal(transport) : 'RM0.00'],
-    ['3', 'Premium Fabric Backdrop', '1', b.backdrop ? 'Included' : 'Included', 'RM0.00', 'RM0.00'],
+    ['1', short(b.pakej || 'Premium Photobooth Package', 64), '1', rmVal(serviceAmount), rmVal(serviceAmount)],
   ];
+  if(transport > 0){ rows.push(['2','Transportation','1',rmVal(transport),rmVal(transport)]); }
+  rows.push(['', 'Premium Fabric Backdrop', '1', 'Included', 'RM0.00']);
+  if(b.backdrop){ rows.push(['', short('Backdrop: ' + b.backdrop, 64), '1', 'Included', 'RM0.00']); }
   if((b.pakejTambahan || '').trim() && (b.pakejTambahan || '').trim().toUpperCase() !== 'N/A'){
-    rows.push(['4', b.pakejTambahan, '1', 'Included', 'RM0.00', 'RM0.00']);
+    rows.push(['', short(b.pakejTambahan, 64), '1', 'Included', 'RM0.00']);
   }
 
   doc.autoTable({
     startY:y,
-    margin:{left:14,right:14},
+    margin:{left:left,right:14},
     theme:'grid',
-    head:[['No','Description','Qty','Unit Price','Tax','Amount']],
+    pageBreak:'avoid',
+    rowPageBreak:'avoid',
+    head:[['No','Description','Qty','Unit Price','Amount']],
     body:rows,
-    headStyles:{fillColor:black, textColor:white, fontStyle:'bold', fontSize:8.4, halign:'center'},
-    styles:{fontSize:8.2, cellPadding:3.2, lineColor:line, lineWidth:0.25, textColor:text},
+    headStyles:{fillColor:black, textColor:white, fontStyle:'bold', fontSize:8.3, halign:'center', cellPadding:1.9},
+    styles:{fontSize:8.0, fontStyle:'normal', cellPadding:1.8, lineColor:line, lineWidth:0.25, textColor:text, overflow:'linebreak', minCellHeight:5.6},
     alternateRowStyles:{fillColor:soft},
     columnStyles:{
       0:{cellWidth:12,halign:'center'},
-      1:{cellWidth:80,fontStyle:'bold'},
-      2:{cellWidth:14,halign:'center'},
-      3:{cellWidth:28,halign:'right'},
-      4:{cellWidth:22,halign:'right'},
-      5:{cellWidth:26,halign:'right',fontStyle:'bold'},
+      1:{cellWidth:100,fontStyle:'bold'},
+      2:{cellWidth:15,halign:'center'},
+      3:{cellWidth:30,halign:'right'},
+      4:{cellWidth:25,halign:'right',fontStyle:'bold'},
     }
   });
 
-  // ================= PAYMENT SUMMARY RIGHT ALIGNED =================
-  y = doc.lastAutoTable.finalY + 12;
+  // ================= PAYMENT SUMMARY =================
+  y = Math.max(doc.lastAutoTable.finalY + 6, 158);
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9.5);
-  doc.text('PAYMENT SUMMARY', 196, y, {align:'right'});
-  y += 5;
+  doc.setFontSize(8.8);
+  doc.text('PAYMENT SUMMARY', right, y, {align:'right'});
+  y += 4;
 
   doc.autoTable({
     startY:y,
     margin:{left:112,right:14},
-    theme:'grid',
+    theme:'plain',
+    pageBreak:'avoid',
+    rowPageBreak:'avoid',
     body:[
       ['Subtotal', rmVal(subtotal)],
       ['Discount', rmVal(discount)],
+      ['Transportation', rmVal(transport)],
       ['Tax', rmVal(taxAmount)],
       ['Deposit Paid', rmVal(paidAmount)],
-      ['TOTAL DUE', rmVal(balanceDue)],
+      ['TOTAL PRICE', rmVal(grandTotal)],
+      ['BALANCE DUE', rmVal(balanceDue)],
     ],
-    styles:{fontSize:8.7, cellPadding:3.1, lineColor:line, lineWidth:0.25, textColor:text},
-    columnStyles:{0:{cellWidth:42,fontStyle:'bold'},1:{cellWidth:42,halign:'right',fontStyle:'bold'}},
+    styles:{fontSize:8.2, fontStyle:'bold', cellPadding:{top:1.5,right:2,bottom:1.5,left:2}, lineColor:line, lineWidth:0.18, textColor:text},
+    columnStyles:{0:{cellWidth:45,fontStyle:'bold'},1:{cellWidth:39,halign:'right',fontStyle:'bold'}},
     didParseCell:function(data){
-      if(data.row.index === 4){
-        data.cell.styles.fillColor = black;
-        data.cell.styles.textColor = white;
+      if(data.row.index === 5 || data.row.index === 6){
+        data.cell.styles.fillColor = data.row.index === 6 ? black : [245,245,245];
+        data.cell.styles.textColor = data.row.index === 6 ? white : black;
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = 9.2;
-        data.cell.styles.cellPadding = 4;
+        data.cell.styles.fontSize = data.row.index === 6 ? 9.1 : 8.5;
+        data.cell.styles.cellPadding = {top:2.0,right:2,bottom:2.0,left:2};
       }
     }
   });
 
-  // ================= PAYMENT DETAILS / TERMS =================
-  y = doc.lastAutoTable.finalY + 16;
-  if(y > 252){ doc.addPage(); y = 20; }
-  section('Payment Details', 14, y, 78);
-  section('Terms & Conditions', 112, y, 84);
-  y += 12;
+  // ================= PAYMENT DETAILS + TERMS =================
+  y = Math.max(doc.lastAutoTable.finalY + 8, 205);
+  const bottomBoxH = 43;
+  doc.setFillColor(...soft);
+  doc.roundedRect(left, y, 86, bottomBoxH, 2.5, 2.5, 'F');
+  doc.roundedRect(110, y, 86, bottomBoxH, 2.5, 2.5, 'F');
+  doc.setDrawColor(...line);
+  doc.roundedRect(left, y, 86, bottomBoxH, 2.5, 2.5, 'S');
+  doc.roundedRect(110, y, 86, bottomBoxH, 2.5, 2.5, 'S');
 
-  doc.setFontSize(8.5);
-  doc.setTextColor(...muted);
+  sectionTitle('Payment Details', left+4, y+7, 76);
+  sectionTitle('Terms & Conditions', 114, y+7, 76);
+
+  let py = y + 16;
+  doc.setFontSize(7.9);
+  doc.setTextColor(...text);
   doc.setFont('helvetica','bold');
-  doc.text('Bank', 14, y);
-  doc.text('Account Name', 14, y+9);
-  doc.text('Account Number', 14, y+22);
-  doc.text('Reference', 14, y+31);
-
-  doc.setTextColor(...text);
+  doc.text(company.bankName || 'CIMB BANK BERHAD', left+4, py);
+  py += 6;
   doc.setFont('helvetica','normal');
-  doc.text(company.bankName || 'CIMB BANK BERHAD', 50, y);
-  doc.text(company.accountName || company.businessName || 'KERLIP STUDIO ENTERPRISE', 50, y+9);
-  doc.text(company.accountNo || '8605915158', 50, y+22);
-  doc.text(docNo, 50, y+31);
-
+  doc.text('Account Name:', left+4, py);
+  doc.setFont('helvetica','bold');
+  doc.text(split(company.accountName || company.businessName || 'KERLIP STUDIO ENTERPRISE', 45).slice(0,2), left+31, py);
+  py += 11;
   doc.setFont('helvetica','normal');
+  doc.text('Account No:', left+4, py);
+  doc.setFont('helvetica','bold');
+  doc.text(company.accountNo || '8605915158', left+31, py);
+  py += 6;
+  doc.setFont('helvetica','normal');
+  doc.text('Reference:', left+4, py);
+  doc.setFont('helvetica','bold');
+  doc.text(docNo, left+31, py);
+
+  const terms = [
+    '• Full payment before event.',
+    '• Deposit confirms booking.',
+    '• Design approval 3 days before event.',
+    '• Overtime is chargeable.',
+    '• Prices quoted in MYR.'
+  ];
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.7);
   doc.setTextColor(...text);
-  const terms = company.terms || '• Full payment before event.\n• Booking is confirmed upon payment.\n• Additional charges apply for overtime.\n• This invoice is computer generated and does not require a signature.';
-  const termLines = String(terms).split('\n').flatMap(t => split(t, 80));
-  doc.text(termLines, 112, y);
+  doc.text(terms, 114, y+16, {lineHeightFactor:1.15});
 
   // ================= FOOTER =================
   doc.setDrawColor(...line);
   doc.setLineWidth(0.35);
-  doc.line(14, 274, 196, 274);
+  doc.line(left, 270, right, 270);
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.text('Thank you for choosing Kerlip Photobooth', 105, 281, {align:'center'});
-  doc.setTextColor(...muted);
+  doc.setFontSize(8.8);
+  doc.text('Thank you for choosing Kerlip Photobooth', pageW/2, 276, {align:'center'});
+  doc.setTextColor(...black);
+  doc.setFont('helvetica','bolditalic');
+  doc.setFontSize(7.8);
+  doc.text('This invoice is computer generated and does not require a signature.', pageW/2, 282, {align:'center'});
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.6);
-  doc.text('Kuala Lumpur • Selangor • Generated on ' + today + ' • Page 1 of 1', 105, 287, {align:'center'});
+  doc.setTextColor(...black);
+  doc.setFontSize(7.3);
+  doc.text('Premium Photobooth Experiences • Kuala Lumpur • Selangor • Generated on ' + today + ' • Page 1 of 1', pageW/2, 288, {align:'center'});
+
+  // Hard guard: keep active page as page 1 if jsPDF accidentally creates blank overflow page.
+  while(doc.getNumberOfPages && doc.getNumberOfPages() > 1){
+    doc.deletePage(doc.getNumberOfPages());
+  }
 
   return doc;
 }
+
+
 function buildReceiptPDF(b){
   const doc = new window.jspdf.jsPDF();
   const docNo = 'RCT-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
