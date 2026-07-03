@@ -823,7 +823,7 @@ function buildQuotationPDF(q){
 
   doc.setFont('helvetica','normal');
   doc.setFontSize(8.5);
-  doc.text('Premium Photobooth Experiences',42,23);
+  doc.text('Turning Moment Into Memories',42,23);
   doc.text('Kuala Lumpur & Selangor, Malaysia',42,28);
 
   doc.setFont('helvetica','bold');
@@ -1052,33 +1052,263 @@ function buildBookingSummaryPDF(b){
 
 function buildInvoicePDF(b){
   const doc = new window.jspdf.jsPDF();
-  const docNo = 'INV-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
-  docHeader(doc,'Invoice',docNo);
-  let y = 34;
-  y = docSectionTitle(doc,'Bill To',y);
-  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)],['Location',b.lokasiEvent]],16,y,90);
-  y += 2;
-  y = docSectionTitle(doc,'Charges',y);
-  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
-    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
-    head:[['Description','Amount (RM)']],
-    body:[[b.pakej||'Photobooth Package', num(b.jumlahKeseluruhan-num(b.transportCharges)).toFixed(2)],
-      ['Transportation Charges', num(b.transportCharges).toFixed(2)]],
-    foot:[['Total Due', num(b.jumlahKeseluruhan).toFixed(2)]],
-    footStyles:{fillColor:[239,228,196],textColor:[28,24,21],fontStyle:'bold'},
-  });
-  y = doc.lastAutoTable.finalY + 6;
-  doc.setFontSize(9);
-  doc.text('Deposit Paid: '+rmVal(b.bayaranDeposit),16,y); y+=5;
+  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
+  const docNo = 'INV' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
+
+  const pageW = 210;
+  const pageH = 297;
+  const black = [14,14,14];
+  const black2 = [24,24,24];
+  const text = [28,24,21];
+  const muted = [86,78,70];
+  const gold = [190,145,58];
+  const goldDeep = [150,105,28];
+  const line = [224,216,203];
+  const cream = [252,248,240];
+  const cream2 = [246,239,226];
+  const paleGold = [239,211,143];
+  const green = [31,139,83];
+  const total = num(b.jumlahKeseluruhan);
+  const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
+  const balance = Math.max(0, total - paidAmount);
+
+  const value = (v) => String(v || '—');
+  const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
+
+  // ========= TOP AREA =========
+  try{
+    doc.addImage(KERLIP_LOGO, 'PNG', 10, 8, 76, 40);
+  }catch(e){
+    doc.setTextColor(...black);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(30);
+    doc.text('KERLIP', 12, 25);
+    doc.setFontSize(7);
+    doc.text('PHOTOBOOTH', 22, 33);
+  }
+
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.text(' Turning Moments into Memorries', 13, 55);
+
+  // right premium invoice badge / header
+  doc.setFillColor(...black);
+  doc.roundedRect(122, 0, 88, 35, 0, 0, 'F');
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(1.2);
+  doc.line(123, 35, 210, 35);
+
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(28);
+  doc.text('INVOICE', 166, 19, {align:'center'});
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(7.5);
+  doc.text('Premium Moments, Beautifully Captured.', 166, 27, {align:'center'});
+
+  doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.text('Balance Due: '+rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)),16,y); doc.setFont('helvetica','normal');
-  y += 10;
-  y = termsBlock(doc,y);
-  y = signatureBlock(doc,y);
-  footerNote(doc);
+  doc.setFontSize(9.5);
+  doc.text('INVOICE NO:', 126, 48);
+  doc.text('DATE:', 126, 58);
+  doc.setFont('helvetica','normal');
+  doc.text(docNo, 196, 48, {align:'right'});
+  doc.text(new Date().toLocaleDateString('en-MY'), 196, 58, {align:'right'});
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.5);
+  doc.line(126, 63, 196, 63);
+
+  // ========= HELPERS =========
+  const iconCircle = (x,y,label) => {
+    doc.setFillColor(...gold);
+    doc.circle(x, y, 4.2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7);
+    doc.text(label, x, y+2.2, {align:'center'});
+  };
+  const sectionTitle = (label, y, icon) => {
+    iconCircle(13.5, y-1.5, icon);
+    doc.setTextColor(...goldDeep);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10.5);
+    doc.text(label.toUpperCase(), 21, y);
+  };
+  const box = (x,y,w,h,fill=cream) => {
+    doc.setFillColor(...fill);
+    doc.setDrawColor(...line);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x,y,w,h,2,2,'FD');
+  };
+  const kv = (label, val, x, y, maxW=54) => {
+    doc.setTextColor(...text);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.5);
+    doc.text(label, x, y);
+    doc.text(':', x+36, y);
+    doc.setFont('helvetica','normal');
+    const lines = split(val, maxW);
+    doc.text(lines, x+42, y);
+  };
+
+  // ========= CLIENT DETAILS =========
+  let y = 76;
+  sectionTitle('Client Details', y, 'C');
+  y += 5;
+  box(10, y, 190, 30, [255,253,249]);
+  doc.setDrawColor(...line);
+  doc.line(105, y+4, 105, y+26);
+
+  kv('Client Name', b.namaClient, 16, y+8);
+  kv('Client Phone', b.noHpClient, 16, y+16);
+  kv('Contact Person', b.namaCP || '—', 16, y+24);
+
+  kv('Booking Status', b.bookingStatus, 112, y+8);
+  kv('Payment Status', b.paymentStatus, 112, y+16);
+  kv('Event Type', b.jenisEvent, 112, y+24, 45);
+
+  // ========= EVENT DETAILS =========
+  y += 42;
+  sectionTitle('Event Details', y, 'E');
+  y += 5;
+  box(10, y, 190, 25, [255,253,249]);
+  doc.line(105, y+4, 105, y+21);
+  kv('Event Date', displayDate(b.tarikhEvent), 16, y+9);
+  kv('Event Time', b.waktuEvent || 'TBC', 16, y+17);
+  kv('Location', b.lokasiEvent, 112, y+9, 58);
+
+  // ========= PACKAGE DETAILS =========
+  y += 38;
+  sectionTitle('Package Details', y, 'P');
+  y += 5;
+  doc.autoTable({
+    startY:y,
+    theme:'grid',
+    margin:{left:10,right:10},
+    head:[['Item','Detail']],
+    body:[
+      ['Package', b.pakej || 'Photobooth Package'],
+      ['Backdrop', b.backdrop || '—'],
+      ['Add-On', b.pakejTambahan || 'N/A'],
+      ['Transportation Charges', num(b.transportCharges) ? rmVal(b.transportCharges) : 'N/A']
+    ],
+    headStyles:{fillColor:black, textColor:[238,200,120], fontStyle:'bold', fontSize:8.5},
+    styles:{fontSize:8.7, cellPadding:3.2, lineColor:line, lineWidth:0.2, textColor:text},
+    columnStyles:{0:{cellWidth:65,fontStyle:'bold'},1:{cellWidth:125}},
+  });
+
+  // ========= PAYMENT SUMMARY + THANK YOU =========
+  y = doc.lastAutoTable.finalY + 8;
+  sectionTitle('Payment Summary', y, 'RM');
+  y += 6;
+  box(10, y, 90, 36, [255,253,249]);
+
+  doc.setFontSize(9.5);
+  doc.setTextColor(...text);
+  doc.setFont('helvetica','normal');
+  doc.text('TOTAL AMOUNT', 16, y+8);
+  doc.text('DEPOSIT PAID', 16, y+18);
+  doc.setFont('helvetica','bold');
+  doc.text(rmVal(total), 94, y+8, {align:'right'});
+  doc.text(rmVal(paidAmount), 94, y+18, {align:'right'});
+
+  doc.setFillColor(...paleGold);
+  doc.rect(10, y+25, 90, 11, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(...black);
+  doc.text('BALANCE DUE', 16, y+32);
+  doc.text(rmVal(balance), 94, y+32, {align:'right'});
+
+  // thank you note on the right
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.5);
+  doc.line(113, y+2, 143, y+2);
+  doc.setTextColor(...goldDeep);
+  doc.setFont('times','italic');
+  doc.setFontSize(18);
+  doc.text('Thank You!', 113, y+12);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...text);
+  doc.text('Thank you for choosing Kerlip Photobooth.', 113, y+23);
+  doc.text('We look forward to being part of your special day.', 113, y+29);
+
+  // ========= REQUIRED INFO BOX =========
+  y += 49;
+  box(10, y, 190, 37, cream2);
+  doc.setDrawColor(...line);
+  doc.line(72, y+6, 72, y+31);
+  doc.line(138, y+6, 138, y+31);
+
+  iconCircle(18, y+10, 'i');
+  doc.setTextColor(...black);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.2);
+  doc.text('*Event details:', 26, y+10);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.8);
+  doc.text(`Event Date : ${displayDate(b.tarikhEvent)}`, 26, y+17);
+  const locLines = split(`Location : ${b.lokasiEvent || '—'}`, 42);
+  doc.text(locLines, 26, y+24);
+
+  iconCircle(80, y+10, 'B');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.2);
+  doc.text('*Bank account details:', 88, y+10);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.8);
+  doc.text('KERLIP STUDIO ENTERPRISE', 88, y+18);
+  doc.text('8605915158 (CIMB BANK BERHAD)', 88, y+25);
+
+  iconCircle(146, y+10, 'T');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.2);
+  doc.text('*Terms & Condition:', 154, y+10);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.8);
+  doc.text('Full payment before event', 154, y+18);
+
+  // ========= FOOTER COMPANY INFO =========
+  doc.setFillColor(...black);
+  doc.roundedRect(0, 266, 210, 31, 0, 0, 'F');
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.6);
+  doc.line(0, 266, 210, 266);
+
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.4);
+  doc.text('KERLIP STUDIO ENTERPRISE', 12, 274);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.text('(003615278-U)', 12, 279);
+  doc.text('36, JALAN ALAM SURIA 16/72', 12, 284);
+  doc.text('SEKSYEN 16 PUNCAK ALAM 42300', 12, 289);
+  doc.text('SELANGOR', 12, 294);
+
+  doc.setDrawColor(120,120,120);
+  doc.line(82, 272, 82, 292);
+  doc.setTextColor(...gold);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.2);
+  doc.text('CONTACT', 90, 274);
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','normal');
+  doc.text('WhatsApp / Phone on file', 90, 280);
+  doc.text('kerlip.studio@gmail.com', 90, 285);
+  doc.text('@kerlip_photobooth', 90, 290);
+
+  doc.setDrawColor(120,120,120);
+  doc.line(143, 272, 143, 292);
+  doc.setTextColor(...gold);
+  doc.setFont('times','italic');
+  doc.setFontSize(13);
+  doc.text("Let's Capture", 154, 278);
+  doc.text('Your Best Moments.', 154, 287);
+
   return doc;
 }
-
 function buildReceiptPDF(b){
   const doc = new window.jspdf.jsPDF();
   const docNo = 'RCT-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
@@ -1186,7 +1416,7 @@ function render(){
   if(State.loading){ app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface)">${I.aperture(48)}</div>`; return; }
   if(!State.authed){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
 
-  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',quotations:'Quotations',staff:'Staff Allowance',accounts:'Account Statement'};
+  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',invoices:'Invoices',quotations:'Quotations',staff:'Staff Allowance',accounts:'Account Statement'};
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar" id="sidebar"></aside>
@@ -1245,7 +1475,7 @@ function attachLoginEvents(){
 function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
-    ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
+    ['invoices', I.doc, 'Invoices'], ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
     ['accounts', I.chart, 'Account Statement'],
   ];
   const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
@@ -1267,6 +1497,7 @@ function renderSidebar(){
 function renderMain(){
   if(State.view==='dashboard') return renderDashboard();
   if(State.view==='bookings') return renderBookings();
+  if(State.view==='invoices') return renderInvoices();
   if(State.view==='quotations') return renderQuotations();
   if(State.view==='staff') return renderStaff();
   if(State.view==='accounts') return renderAccounts();
@@ -1596,6 +1827,73 @@ function renderBookings(){
         </tbody>
       </table>
     </div>
+  </div>`;
+}
+
+
+/* ======================= INVOICES VIEW ======================= */
+function renderInvoices(){
+  const rows = State.bookings
+    .filter(b=>b.bookingStatus!=='Cancelled')
+    .sort((a,b)=>(b.tarikhEvent||'').localeCompare(a.tarikhEvent||''));
+
+  const totalInvoiceValue = rows.reduce((sum,b)=>sum+num(b.jumlahKeseluruhan),0);
+  const totalPaidValue = rows.reduce((sum,b)=>sum+(b.paymentStatus==='Paid'?num(b.jumlahKeseluruhan):num(b.bayaranDeposit)),0);
+  const totalOutstanding = rows.reduce((sum,b)=>{
+    const paid = b.paymentStatus==='Paid' ? num(b.jumlahKeseluruhan) : num(b.bayaranDeposit);
+    return sum + Math.max(0, num(b.jumlahKeseluruhan)-paid);
+  },0);
+
+  return `
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div class="card" style="padding:22px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Document Centre</div>
+        <div class="serif" style="font-size:28px;font-weight:700;margin-top:3px">Invoices</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">Generate invoice PDF directly from confirmed booking summaries.</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${statMini('Total Invoice Value', rmVal(totalInvoiceValue))}
+        ${statMini('Paid / Collected', rmVal(totalPaidValue))}
+        ${statMini('Outstanding', rmVal(totalOutstanding))}
+      </div>
+    </div>
+
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr>${['Invoice No.','Event Date','Client','Phone','Package','Total','Paid','Outstanding','Payment','Booking','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(b=>{
+            const invoiceNo = 'INV-'+(b.tarikhEvent||todayISO()).replace(/-/g,'')+'-'+b.id.slice(-4);
+            const paidAmount = b.paymentStatus==='Paid' ? num(b.jumlahKeseluruhan) : num(b.bayaranDeposit);
+            const outstanding = Math.max(0, num(b.jumlahKeseluruhan)-paidAmount);
+            return `<tr>
+              <td style="font-weight:700">${invoiceNo}</td>
+              <td>${displayDate(b.tarikhEvent)}</td>
+              <td style="font-weight:700">${esc(b.namaClient)}</td>
+              <td>${esc(b.noHpClient)}</td>
+              <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(b.pakej)}">${esc(b.pakej||'Photobooth Package')}</td>
+              <td>${rmVal(b.jumlahKeseluruhan)}</td>
+              <td>${rmVal(paidAmount)}</td>
+              <td style="font-weight:700;color:${outstanding>0?'var(--danger)':'var(--success)'}">${rmVal(outstanding)}</td>
+              <td>${badge(paymentTone(b.paymentStatus),b.paymentStatus)}</td>
+              <td>${badge(bookingTone(b.bookingStatus),b.bookingStatus)}</td>
+              <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn" style="padding:6px 10px;font-size:12px" data-invoice-download="${b.id}">${I.download} Download</button>
+                <button class="btn" style="padding:6px 10px;font-size:12px" data-invoice-print="${b.id}">${I.print} Print</button>
+                <a class="btn" style="padding:6px 10px;font-size:12px" href="${waLink(b.noHpClient,`Hi ${b.namaClient}, please find the invoice from Kerlip Photobooth for your event on ${displayDate(b.tarikhEvent)}.`)}" target="_blank">${I.whatsapp} WhatsApp</a>
+              </div></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted)">No booking available for invoice generation.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function statMini(label,value){
+  return `<div style="min-width:150px;padding:12px 14px;border-radius:16px;background:var(--surfaceAlt);border:1px solid var(--line)">
+    <div style="font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em">${label}</div>
+    <div style="font-size:17px;font-weight:800;margin-top:4px">${value}</div>
   </div>`;
 }
 
@@ -2019,6 +2317,21 @@ function attachGlobalEvents(){
   });
   const btnAccExcel = $('btn-acc-excel'); if(btnAccExcel) btnAccExcel.onclick = () => exportAccountsExcel(State.accountsYear);
   const btnAccPdf = $('btn-acc-pdf'); if(btnAccPdf) btnAccPdf.onclick = () => exportAccountsPDF(State.accountsYear);
+
+  // Invoice tab actions
+  document.querySelectorAll('[data-invoice-download]').forEach(el => el.onclick = () => {
+    const b = State.bookings.find(x=>x.id===el.dataset.invoiceDownload);
+    const doc = buildInvoicePDF(b);
+    const filename = `invoice-${b.namaClient}-${displayDate(b.tarikhEvent)}`.replace(/[^a-z0-9.\- ]/gi,'').replace(/\s+/g,'-').toLowerCase()+'.pdf';
+    doc.save(filename);
+    showToast('Invoice PDF downloaded.');
+  });
+  document.querySelectorAll('[data-invoice-print]').forEach(el => el.onclick = () => {
+    const b = State.bookings.find(x=>x.id===el.dataset.invoicePrint);
+    const doc = buildInvoicePDF(b);
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
+  });
 
   // Docs
   document.querySelectorAll('[data-doc]').forEach(el => el.onclick = () => {
