@@ -698,8 +698,8 @@ const COMPANY_FIELDS = [
 /* ======================= STATE ======================= */
 const State = {
   authed:false, view:'dashboard', loading:true,
-  bookings:[], quotations:[], staff:[], expenses:[], company: defaultCompanyProfile(),
-  formModal:null,      // {type:'booking'|'quotation'|'staff'|'expense', data:{...}, isNew}
+  bookings:[], quotations:[], staff:[], staffInfo:[], expenses:[], company: defaultCompanyProfile(),
+  formModal:null,      // {type:'booking'|'quotation'|'staff'|'staffInfo'|'expense', data:{...}, isNew}
   docModal:null,       // {kind, obj}
   syncTarget:null,
   reportMonth: new Date().toISOString().slice(0,7),
@@ -707,7 +707,7 @@ const State = {
   toast:null,
 };
 
-const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff', expenses:'kerlip:expenses' };
+const K = { bookings:'kerlip:bookings', quotations:'kerlip:quotations', staff:'kerlip:staff', staffInfo:'kerlip:staffInfo', expenses:'kerlip:expenses' };
 
 async function loadAll(){
   try{
@@ -717,18 +717,21 @@ async function loadAll(){
       State.bookings = Array.isArray(data.bookings) ? data.bookings : [];
       State.quotations = Array.isArray(data.quotations) ? data.quotations : [];
       State.staff = Array.isArray(data.staff) ? data.staff : [];
+      State.staffInfo = Array.isArray(data.staffInfo) ? data.staffInfo : [];
       State.expenses = Array.isArray(data.expenses) ? data.expenses : [];
       State.company = { ...defaultCompanyProfile(), ...(data.company || {}) };
     } else {
       State.bookings = [sampleBooking()];
       State.quotations = [];
       State.staff = [];
+      State.staffInfo = [];
       State.expenses = [];
       State.company = defaultCompanyProfile();
       await setDoc(appDataRef, {
         bookings: State.bookings,
         quotations: State.quotations,
         staff: State.staff,
+        staffInfo: State.staffInfo,
         expenses: State.expenses,
         company: State.company,
         updatedAt: new Date().toISOString()
@@ -739,6 +742,7 @@ async function loadAll(){
     State.bookings = [sampleBooking()];
     State.quotations = [];
     State.staff = [];
+    State.staffInfo = [];
     State.expenses = [];
     State.company = defaultCompanyProfile();
     showToast("Firebase load failed. Check Firestore rules.");
@@ -752,6 +756,7 @@ async function persist(key){
       bookings: State.bookings,
       quotations: State.quotations,
       staff: State.staff,
+      staffInfo: State.staffInfo,
       expenses: State.expenses,
       company: State.company,
       updatedAt: new Date().toISOString()
@@ -803,9 +808,18 @@ function emptyQuotation(){
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
-  return { id:uid(), eventDate:todayISO(), bookingRef:'', staffName:'', staffPhone:'', role:'', eventLocation:'',
+  return { id:uid(), eventDate:todayISO(), bookingRef:'', staffName:'', staffPhone:'', staffIC:'', staffBankNo:'', role:'', eventLocation:'',
     workingHours:'', allowanceAmount:0, transportAllowance:0, mealAllowance:0, paymentStatus:'Pending',
     paymentDate:'', remarks:'', createdAt:new Date().toISOString() };
+}
+function emptyStaffInfo(){
+  return { id:uid(), staffName:'', staffIC:'', staffPhone:'', staffBankName:'', staffBankNo:'', emergencyContact:'', address:'', status:'Active', remarks:'', createdAt:new Date().toISOString() };
+}
+function staffInfoOptions(){
+  return State.staffInfo.filter(s=>!s.status || s.status==='Active').map(s=>s.staffName).filter(Boolean);
+}
+function findStaffInfoByName(name){
+  return State.staffInfo.find(s=>String(s.staffName||'').trim().toLowerCase() === String(name||'').trim().toLowerCase());
 }
 function quotationTotal(q){ return num(q.pakejPrice)+num(q.addOnPrice)+num(q.transportCharges)-num(q.discount); }
 function quotationTax(q){ return quotationTotal(q) * num(q.sstPercent)/100; }
@@ -852,11 +866,18 @@ const QUOTATION_FIELDS = [
 ];
 const STAFF_FIELDS = [
   ['eventDate','Event Date','date'],['bookingRef','Booking Reference','text'],
-  ['staffName','Staff Name','text'],['staffPhone','Staff Phone Number','text'],
+  ['staffName','Staff Name','selectDynamic','staffInfo'],['staffPhone','Staff Phone Number','text'],
+  ['staffIC','IC Number','text'],['staffBankNo','Bank Account Number','text'],
   ['role','Role','text'],['eventLocation','Event Location','text'],
   ['workingHours','Working Hours','text'],['allowanceAmount','Allowance Amount (RM)','number'],
   ['transportAllowance','Transport Allowance (RM)','number'],['mealAllowance','Meal Allowance (RM)','number'],
   ['remarks','Remarks','text'],
+];
+const STAFF_INFO_FIELDS = [
+  ['staffName','Staff Name','text'],['staffIC','IC Number','text'],['staffPhone','Phone Number','text'],
+  ['staffBankName','Bank Name','text'],['staffBankNo','Bank Account Number','text'],
+  ['emergencyContact','Emergency Contact','text'],['address','Address','text'],
+  ['status','Status','select',['Active','Inactive']],['remarks','Remarks','text'],
 ];
 
 /* ======================= ACCOUNT STATEMENT: EXPENSE DATA MODEL ======================= */
@@ -1538,6 +1559,7 @@ function buildStaffPDF(s){
     body:[
       ['Staff Name', s.staffName||'—','Role', s.role||'—'],
       ['Staff Phone', s.staffPhone||'—','Booking Reference', s.bookingRef||'—'],
+      ['IC Number', s.staffIC||'—','Bank Account No.', s.staffBankNo||'—'],
       ['Event Date', displayDate(s.eventDate),'Working Hours', s.workingHours||'—'],
       ['Event Location', s.eventLocation||'—','Payment Status', s.paymentStatus],
     ]});
@@ -1609,7 +1631,7 @@ function render(){
   if(State.loading){ app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface)">${I.aperture(48)}</div>`; return; }
   if(!State.authed){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
 
-  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',invoices:'Invoices',quotations:'Quotations',staff:'Staff Allowance',accounts:'Account Statement'};
+  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',invoices:'Invoices',quotations:'Quotations',staffInfo:'Staff Information',staff:'Staff Allowance',accounts:'Account Statement'};
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar" id="sidebar"></aside>
@@ -1668,7 +1690,7 @@ function attachLoginEvents(){
 function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
-    ['invoices', I.doc, 'Invoices'], ['quotations', I.quote, 'Quotations'], ['staff', I.users, 'Staff Allowance'],
+    ['invoices', I.doc, 'Invoices'], ['quotations', I.quote, 'Quotations'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
     ['accounts', I.chart, 'Account Statement'], ['settings', I.doc, 'Company e-Invoice'],
   ];
   const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
@@ -1692,6 +1714,7 @@ function renderMain(){
   if(State.view==='bookings') return renderBookings();
   if(State.view==='invoices') return renderInvoices();
   if(State.view==='quotations') return renderQuotations();
+  if(State.view==='staffInfo') return renderStaffInfo();
   if(State.view==='staff') return renderStaff();
   if(State.view==='accounts') return renderAccounts();
   if(State.view==='settings') return renderSettings();
@@ -2129,6 +2152,43 @@ function renderQuotations(){
   </div>`;
 }
 
+
+/* ======================= STAFF INFORMATION VIEW ======================= */
+function renderStaffInfo(){
+  const rows = State.staffInfo || [];
+  return `
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" style="padding:22px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Crew Database</div>
+        <div class="serif" style="font-size:28px;font-weight:700;margin-top:3px">Staff Information</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">Save staff details once, then select the staff name from Staff Allowance.</div>
+      </div>
+      <button class="btn btn-dark" id="btn-new-staff-info">${I.plus} New Staff</button>
+    </div>
+    <div class="card table-card table-scroll">
+      <table>
+        <thead><tr>${['Name','IC Number','Phone','Bank Name','Bank Account No.','Emergency Contact','Status','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(s=>`<tr>
+              <td style="font-weight:700">${esc(s.staffName)}</td>
+              <td>${esc(s.staffIC)||'—'}</td>
+              <td>${esc(s.staffPhone)||'—'}</td>
+              <td>${esc(s.staffBankName)||'—'}</td>
+              <td style="font-weight:700">${esc(s.staffBankNo)||'—'}</td>
+              <td>${esc(s.emergencyContact)||'—'}</td>
+              <td>${badge(s.status==='Inactive'?'danger':'success',s.status||'Active')}</td>
+              <td><div style="display:flex;gap:2px">
+                <button class="btn-ghost" data-edit-staff-info="${s.id}" title="Edit">${I.edit}</button>
+                <button class="btn-ghost" data-del-staff-info="${s.id}" title="Delete">${I.trash}</button>
+              </div></td>
+            </tr>`).join('') || `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted)">No staff information yet. Add staff details here first.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 /* ======================= STAFF ALLOWANCE VIEW ======================= */
 function renderStaff(){
   const rows = State.staff;
@@ -2139,13 +2199,15 @@ function renderStaff(){
     </div>
     <div class="card table-card table-scroll">
       <table>
-        <thead><tr>${['Event Date','Booking Ref','Staff','Phone','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['Event Date','Booking Ref','Staff','Phone','IC','Bank No.','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map(s=>`<tr>
               <td>${displayDate(s.eventDate)}</td>
               <td>${esc(s.bookingRef)||'—'}</td>
               <td style="font-weight:600">${esc(s.staffName)}</td>
               <td>${esc(s.staffPhone)}</td>
+              <td>${esc(s.staffIC)||'—'}</td>
+              <td>${esc(s.staffBankNo)||'—'}</td>
               <td>${esc(s.role)}</td>
               <td>${esc(s.workingHours)}</td>
               <td>${rm(staffTotal(s))}</td>
@@ -2156,7 +2218,7 @@ function renderStaff(){
                 <button class="btn-ghost" data-edit-s="${s.id}" title="Edit">${I.edit}</button>
                 <button class="btn-ghost" data-del-s="${s.id}" title="Delete">${I.trash}</button>
               </div></td>
-            </tr>`).join('') || `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--muted)">No staff allowance entries yet.</td></tr>`}
+            </tr>`).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No staff allowance entries yet.</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -2384,8 +2446,8 @@ function renderAccounts(){
 /* ======================= FORM MODAL (booking / quotation / staff) ======================= */
 function renderFormModal(){
   const { type, data } = State.formModal;
-  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:EXPENSE_FIELDS;
-  const title = type==='booking' ? (data._isNew?'New Booking':'Edit Booking') : type==='quotation' ? (data._isNew?'New Quotation':'Edit Quotation') : type==='staff' ? (data._isNew?'New Staff Entry':'Edit Staff Entry') : (data._isNew?'New Expense / CAPEX Entry':'Edit Expense / CAPEX Entry');
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:type==='staffInfo'?STAFF_INFO_FIELDS:EXPENSE_FIELDS;
+  const title = type==='booking' ? (data._isNew?'New Booking':'Edit Booking') : type==='quotation' ? (data._isNew?'New Quotation':'Edit Quotation') : type==='staff' ? (data._isNew?'New Staff Entry':'Edit Staff Entry') : type==='staffInfo' ? (data._isNew?'New Staff Information':'Edit Staff Information') : (data._isNew?'New Expense / CAPEX Entry':'Edit Expense / CAPEX Entry');
 
   let extra = '';
   if(type==='booking'){
@@ -2419,7 +2481,9 @@ function renderFormModal(){
         <div class="grid2">
           ${meta.map(([key,label,t,opts])=> t==='select'
             ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}">${opts.map(o=>`<option ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
-            : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`
+            : t==='selectDynamic'
+              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}"><option value="">Select staff</option>${staffInfoOptions().map(o=>`<option value="${esc(o)}" ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">Manage staff details in Staff Information tab.</div></div>`
+              : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`
           ).join('')}
           ${extra}
         </div>
@@ -2546,6 +2610,16 @@ function attachGlobalEvents(){
     openForm('booking', nb);
   });
 
+
+  // Staff Information
+  const btnNewSI = $('btn-new-staff-info'); if(btnNewSI) btnNewSI.onclick = () => openForm('staffInfo', {...emptyStaffInfo(), _isNew:true});
+  document.querySelectorAll('[data-edit-staff-info]').forEach(el => el.onclick = () => {
+    const s = State.staffInfo.find(x=>x.id===el.dataset.editStaffInfo); openForm('staffInfo', {...s});
+  });
+  document.querySelectorAll('[data-del-staff-info]').forEach(el => el.onclick = () => {
+    if(confirm('Delete this staff information?')){ State.staffInfo = State.staffInfo.filter(x=>x.id!==el.dataset.delStaffInfo); persist('staffInfo'); render(); }
+  });
+
   // Staff
   const btnNewS = $('btn-new-staff'); if(btnNewS) btnNewS.onclick = () => openForm('staff', {...emptyStaff(), _isNew:true});
   document.querySelectorAll('[data-edit-s]').forEach(el => el.onclick = () => {
@@ -2554,6 +2628,19 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-del-s]').forEach(el => el.onclick = () => {
     if(confirm('Delete this staff allowance entry?')){ State.staff = State.staff.filter(x=>x.id!==el.dataset.delS); persist('staff'); render(); }
   });
+
+
+  const staffNameSelect = $('ff-staffName');
+  if(staffNameSelect && State.formModal && State.formModal.type === 'staff'){
+    staffNameSelect.onchange = () => {
+      const linked = findStaffInfoByName(staffNameSelect.value);
+      if(linked){
+        const phone = $('ff-staffPhone'); if(phone) phone.value = linked.staffPhone || '';
+        const ic = $('ff-staffIC'); if(ic) ic.value = linked.staffIC || '';
+        const bank = $('ff-staffBankNo'); if(bank) bank.value = linked.staffBankNo || '';
+      }
+    };
+  }
 
   // Company e-Invoice Settings
   const companyForm = $('company-form');
@@ -2656,7 +2743,7 @@ function closeForm(){ State.formModal = null; render(); }
 function submitForm(e){
   e.preventDefault();
   const { type, data } = State.formModal;
-  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:EXPENSE_FIELDS;
+  const meta = type==='booking'?BOOKING_FIELDS:type==='quotation'?QUOTATION_FIELDS:type==='staff'?STAFF_FIELDS:type==='staffInfo'?STAFF_INFO_FIELDS:EXPENSE_FIELDS;
   const out = { ...data };
   meta.forEach(([key,label,t]) => { const el = $('ff-'+key); out[key] = t==='number' ? Number(el.value)||0 : el.value; });
 
@@ -2687,8 +2774,32 @@ function submitForm(e){
     persist('quotations'); State.formModal = null; showToast('Quotation saved.'); render(); return;
   }
 
+
+  if(type==='staffInfo'){
+    if(!out.staffName.trim()){ showFormWarn('Staff Name is required.'); return; }
+    delete out._isNew;
+    const exists = State.staffInfo.some(x=>x.id===out.id);
+    State.staffInfo = exists ? State.staffInfo.map(x=>x.id===out.id?out:x) : [...State.staffInfo, out];
+
+    // Keep existing allowance records updated when the same staff name is used.
+    State.staff = State.staff.map(s => s.staffName === out.staffName ? {
+      ...s,
+      staffPhone: out.staffPhone || s.staffPhone,
+      staffIC: out.staffIC || s.staffIC,
+      staffBankNo: out.staffBankNo || s.staffBankNo
+    } : s);
+
+    persist('staffInfo'); State.formModal = null; showToast('Staff information saved.'); render(); return;
+  }
+
   if(type==='staff'){
     out.paymentStatus = $('ff-paymentStatus').value; out.paymentDate = $('ff-paymentDate').value;
+    const linkedStaff = findStaffInfoByName(out.staffName);
+    if(linkedStaff){
+      out.staffPhone = linkedStaff.staffPhone || out.staffPhone;
+      out.staffIC = linkedStaff.staffIC || out.staffIC;
+      out.staffBankNo = linkedStaff.staffBankNo || out.staffBankNo;
+    }
     if(!out.staffName.trim() || !out.eventDate){ showFormWarn('Staff Name and Event Date are required.'); return; }
     delete out._isNew;
     const exists = State.staff.some(x=>x.id===out.id);
