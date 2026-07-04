@@ -849,18 +849,24 @@ function emptyQuotation(){
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
-  return { id:uid(), eventDate:todayISO(), bookingRef:'', staffName:'', staffPhone:'', staffIC:'', staffBankNo:'', role:'', eventLocation:'',
+  return { id:uid(), eventDate:todayISO(), bookingRef:'', staffName:'', staffPhone:'', staffIC:'', staffBankName:'', staffBankNo:'', role:'', eventLocation:'',
     workingHours:'', allowanceAmount:0, transportAllowance:0, mealAllowance:0, paymentStatus:'Pending',
     paymentDate:'', remarks:'', createdAt:new Date().toISOString() };
 }
 function emptyStaffInfo(){
   return { id:uid(), staffName:'', staffIC:'', staffPhone:'', staffBankName:'', staffBankNo:'', emergencyContact:'', address:'', status:'Active', remarks:'', createdAt:new Date().toISOString() };
 }
+function activeStaffInfo(){
+  return (State.staffInfo || []).filter(s => !s.status || s.status === 'Active').filter(s => String(s.staffName || '').trim());
+}
 function staffInfoOptions(){
-  return State.staffInfo.filter(s=>!s.status || s.status==='Active').map(s=>s.staffName).filter(Boolean);
+  return activeStaffInfo().map(s => ({ id:s.id, name:s.staffName, phone:s.staffPhone, ic:s.staffIC, bankName:s.staffBankName, bankNo:s.staffBankNo }));
 }
 function findStaffInfoByName(name){
-  return State.staffInfo.find(s=>String(s.staffName||'').trim().toLowerCase() === String(name||'').trim().toLowerCase());
+  return activeStaffInfo().find(s=>String(s.staffName||'').trim().toLowerCase() === String(name||'').trim().toLowerCase());
+}
+function findStaffInfoById(id){
+  return activeStaffInfo().find(s => String(s.id) === String(id));
 }
 function quotationTotal(q){ return num(q.pakejPrice)+num(q.addOnPrice)+num(q.transportCharges)-num(q.discount); }
 function quotationTax(q){ return quotationTotal(q) * num(q.sstPercent)/100; }
@@ -959,8 +965,8 @@ const QUOTATION_FIELDS = [
 ];
 const STAFF_FIELDS = [
   ['eventDate','Event Date','date'],['bookingRef','Booking Reference','text'],
-  ['staffName','Staff Name','selectDynamic','staffInfo'],['staffPhone','Staff Phone Number','text'],
-  ['staffIC','IC Number','text'],['staffBankNo','Bank Account Number','text'],
+  ['staffName','Select Staff','selectDynamic','staffInfo'],['staffPhone','Staff Phone Number','text'],
+  ['staffIC','IC Number','text'],['staffBankName','Bank Name','text'],['staffBankNo','Bank Account Number','text'],
   ['role','Role','text'],['eventLocation','Event Location','text'],
   ['workingHours','Working Hours','text'],['allowanceAmount','Allowance Amount (RM)','number'],
   ['transportAllowance','Transport Allowance (RM)','number'],['mealAllowance','Meal Allowance (RM)','number'],
@@ -2559,8 +2565,8 @@ function renderFormModal(){
           ${meta.map(([key,label,t,opts])=> t==='select'
             ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${opts.map(o=>`<option ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
             : t==='selectDynamic'
-              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}"><option value="">Select staff</option>${staffInfoOptions().map(o=>`<option value="${esc(o)}" ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">Manage staff details in Staff Information tab.</div></div>`
-              : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" data-key="${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} /></div>`
+              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}"><option value="">Select staff from Staff Information</option>${staffInfoOptions().map(o=>`<option value="${esc(o.name)}" data-staff-id="${esc(o.id)}" ${data[key]===o.name?'selected':''}>${esc(o.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">This dropdown is linked to Staff Information. Phone, IC, Bank Name and Account Number will auto-fill.</div></div>`
+              : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" data-key="${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} ${type==='staff' && ['staffPhone','staffIC','staffBankName','staffBankNo'].includes(key)?'readonly title="Auto-filled from Staff Information" style="background:var(--surface);font-weight:700"':''} /></div>`
           ).join('')}
           ${extra}
         </div>
@@ -2709,14 +2715,26 @@ function attachGlobalEvents(){
 
   const staffNameSelect = $('ff-staffName');
   if(staffNameSelect && State.formModal && State.formModal.type === 'staff'){
-    staffNameSelect.onchange = () => {
+    const fillStaffDetails = () => {
       const linked = findStaffInfoByName(staffNameSelect.value);
+      const phone = $('ff-staffPhone');
+      const ic = $('ff-staffIC');
+      const bankName = $('ff-staffBankName');
+      const bankNo = $('ff-staffBankNo');
       if(linked){
-        const phone = $('ff-staffPhone'); if(phone) phone.value = linked.staffPhone || '';
-        const ic = $('ff-staffIC'); if(ic) ic.value = linked.staffIC || '';
-        const bank = $('ff-staffBankNo'); if(bank) bank.value = linked.staffBankNo || '';
+        if(phone) phone.value = linked.staffPhone || '';
+        if(ic) ic.value = linked.staffIC || '';
+        if(bankName) bankName.value = linked.staffBankName || '';
+        if(bankNo) bankNo.value = linked.staffBankNo || '';
+      } else {
+        if(phone) phone.value = '';
+        if(ic) ic.value = '';
+        if(bankName) bankName.value = '';
+        if(bankNo) bankNo.value = '';
       }
     };
+    staffNameSelect.onchange = fillStaffDetails;
+    fillStaffDetails();
   }
 
   // Company e-Invoice Settings
@@ -2863,6 +2881,7 @@ function submitForm(e){
       ...s,
       staffPhone: out.staffPhone || s.staffPhone,
       staffIC: out.staffIC || s.staffIC,
+      staffBankName: out.staffBankName || s.staffBankName,
       staffBankNo: out.staffBankNo || s.staffBankNo
     } : s);
 
@@ -2875,6 +2894,7 @@ function submitForm(e){
     if(linkedStaff){
       out.staffPhone = linkedStaff.staffPhone || out.staffPhone;
       out.staffIC = linkedStaff.staffIC || out.staffIC;
+      out.staffBankName = linkedStaff.staffBankName || out.staffBankName;
       out.staffBankNo = linkedStaff.staffBankNo || out.staffBankNo;
     }
     if(!out.staffName.trim() || !out.eventDate){ showFormWarn('Staff Name and Event Date are required.'); return; }
