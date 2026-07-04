@@ -1320,11 +1320,8 @@ function buildInvoicePDF(b){
   const total = num(b.jumlahKeseluruhan);
   const transport = num(b.transportCharges);
   const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
-  const discount = 0;
-  const taxRate = num(company.taxRate);
   const subtotal = total;
-  const taxAmount = subtotal * taxRate / 100;
-  const grandTotal = subtotal + taxAmount - discount;
+  const grandTotal = subtotal;
   const balanceDue = Math.max(0, grandTotal - paidAmount);
   const serviceAmount = Math.max(0, total - transport);
 
@@ -1442,8 +1439,6 @@ function buildInvoicePDF(b){
     ['1', short(b.pakej || 'Premium Photobooth Package', 64), '1', rmVal(serviceAmount), rmVal(serviceAmount)],
   ];
   if(transport > 0){ rows.push(['2','Transportation','1',rmVal(transport),rmVal(transport)]); }
-  rows.push(['', 'Premium Fabric Backdrop', '1', 'Included', 'RM0.00']);
-  if(b.backdrop){ rows.push(['', short('Backdrop: ' + b.backdrop, 64), '1', 'Included', 'RM0.00']); }
   packageBenefitLabels(b).forEach(label => rows.push(['', short(label, 64), '1', 'Included', 'RM0.00']));
   if((b.pakejTambahan || '').trim() && (b.pakejTambahan || '').trim().toUpperCase() !== 'N/A'){
     rows.push(['', short(b.pakejTambahan, 64), '1', 'Included', 'RM0.00']);
@@ -1485,9 +1480,7 @@ function buildInvoicePDF(b){
     rowPageBreak:'avoid',
     body:[
       ['Subtotal', rmVal(subtotal)],
-      ['Discount', rmVal(discount)],
       ['Transportation', rmVal(transport)],
-      ['Tax', rmVal(taxAmount)],
       ['Deposit Paid', rmVal(paidAmount)],
       ['TOTAL PRICE', rmVal(grandTotal)],
       ['BALANCE DUE', rmVal(balanceDue)],
@@ -1495,11 +1488,11 @@ function buildInvoicePDF(b){
     styles:{fontSize:8.2, fontStyle:'bold', cellPadding:{top:1.5,right:2,bottom:1.5,left:2}, lineColor:line, lineWidth:0.18, textColor:text},
     columnStyles:{0:{cellWidth:45,fontStyle:'bold'},1:{cellWidth:39,halign:'right',fontStyle:'bold'}},
     didParseCell:function(data){
-      if(data.row.index === 5 || data.row.index === 6){
-        data.cell.styles.fillColor = data.row.index === 6 ? black : [245,245,245];
-        data.cell.styles.textColor = data.row.index === 6 ? white : black;
+      if(data.row.index === 3 || data.row.index === 4){
+        data.cell.styles.fillColor = data.row.index === 4 ? black : [245,245,245];
+        data.cell.styles.textColor = data.row.index === 4 ? white : black;
         data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fontSize = data.row.index === 6 ? 9.1 : 8.5;
+        data.cell.styles.fontSize = data.row.index === 4 ? 9.1 : 8.5;
         data.cell.styles.cellPadding = {top:2.0,right:2,bottom:2.0,left:2};
       }
     }
