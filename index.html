@@ -839,10 +839,11 @@ const OPEX_CATEGORIES = [
   'Commission / referral fee','Bank charges','Accounting / admin cost','Miscellaneous expenses',
 ];
 const PAYMENT_METHODS = ['Bank Transfer','Cash','DuitNow','Card','E-Wallet','Other'];
+const EVENT_TYPE_OPTIONS = ['WEDDING','COMPANY','PERSONAL'];
 
 /* ======================= FIELD META (drives form rendering) ======================= */
 const BOOKING_FIELDS = [
-  ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','text'],
+  ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','select',EVENT_TYPE_OPTIONS],
   ['namaClient','Nama Client','text'],['noHpClient','No HP Client','text'],
   ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
@@ -857,7 +858,7 @@ const BOOKING_FIELDS = [
 const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
   ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Date','date'],
-  ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','text'],
+  ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['pakej','Package Selected','text'],['pakejPrice','Package Price (RM)','number'],
   ['backdrop','Backdrop Selected','text'],['addOn','Add-On Package','text'],
   ['addOnPrice','Add-On Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
@@ -1292,15 +1293,17 @@ function buildInvoicePDF(b){
     doc.setLineWidth(0.45);
     doc.line(x, y+2.8, x+w, y+2.8);
   };
-  const smallLabel = (label, value, x, y, labelW=24, valueW=54) => {
+  const infoItem = (label, value, x, y, w=70) => {
     doc.setTextColor(...softMuted);
     doc.setFont('helvetica','bold');
-    doc.setFontSize(7.8);
-    doc.text(label, x, y);
+    doc.setFontSize(6.9);
+    doc.text(String(label || '').toUpperCase(), x, y);
     doc.setTextColor(...text);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7.8);
-    doc.text(split(value, valueW).slice(0,2), x+labelW, y);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.0);
+    const lines = split(value, w).slice(0,2);
+    doc.text(lines, x, y+4.0);
+    return y + 9.7 + ((lines.length > 1) ? 3.0 : 0);
   };
 
   // ================= COMPACT HEADER =================
@@ -1337,35 +1340,41 @@ function buildInvoicePDF(b){
   doc.line(left, 58, right, 58);
 
   // ================= CLIENT + EVENT BOXES =================
-  const boxY = 65;
-  const boxH = 43;
-  const colW = 86;
+  const boxY = 63;
+  const boxH = 56;
+  const colW = 87;
+  const gapX = 9;
+  const rightBoxX = left + colW + gapX;
+
   doc.setFillColor(...soft);
-  doc.roundedRect(left, boxY, colW, boxH, 2.5, 2.5, 'F');
-  doc.roundedRect(110, boxY, 86, boxH, 2.5, 2.5, 'F');
+  doc.roundedRect(left, boxY, colW, boxH, 2.8, 2.8, 'F');
+  doc.roundedRect(rightBoxX, boxY, colW, boxH, 2.8, 2.8, 'F');
   doc.setDrawColor(...line);
-  doc.roundedRect(left, boxY, colW, boxH, 2.5, 2.5, 'S');
-  doc.roundedRect(110, boxY, 86, boxH, 2.5, 2.5, 'S');
+  doc.setLineWidth(0.25);
+  doc.roundedRect(left, boxY, colW, boxH, 2.8, 2.8, 'S');
+  doc.roundedRect(rightBoxX, boxY, colW, boxH, 2.8, 2.8, 'S');
 
-  sectionTitle('Bill To', left+4, boxY+7, 76);
-  sectionTitle('Event Details', 114, boxY+7, 76);
+  sectionTitle('Bill To', left+4, boxY+7, colW-8);
+  sectionTitle('Event Details', rightBoxX+4, boxY+7, colW-8);
 
-  let iy = boxY + 15;
-  smallLabel('Name', b.namaClient || '—', left+4, iy, 22, 55);
-  smallLabel('Company', b.buyerCompany || b.namaClient || '—', left+4, iy+6.3, 22, 55);
-  smallLabel('Phone', b.noHpClient || '—', left+4, iy+12.6, 22, 55);
-  smallLabel('Email', b.buyerEmail || '—', left+4, iy+18.9, 22, 55);
-  smallLabel('TIN', b.buyerTin || '—', left+4, iy+25.2, 22, 55);
+  // Stacked label/value layout prevents long wording from spilling outside the card.
+  // Each value wraps naturally inside its own card.
+  let ly = boxY + 14.2;
+  ly = infoItem('Name', b.namaClient || '—', left+4, ly, colW-8);
+  ly = infoItem('Company', b.buyerCompany || b.namaClient || '—', left+4, ly, colW-8);
+  ly = infoItem('Phone', b.noHpClient || '—', left+4, ly, colW-8);
+  ly = infoItem('Email', b.buyerEmail || '—', left+4, ly, colW-8);
+  ly = infoItem('TIN', b.buyerTin || '—', left+4, ly, colW-8);
 
-  smallLabel('Booking No', b.bookingNo || b.quotationRef || '—', 114, iy, 30, 46);
-  smallLabel('Event', b.jenisEvent || '—', 114, iy+6.3, 30, 46);
-  smallLabel('Date', displayDate(b.tarikhEvent), 114, iy+12.6, 30, 46);
-  smallLabel('Time', b.waktuEvent || 'TBC', 114, iy+18.9, 30, 46);
-  smallLabel('Venue', b.lokasiEvent || '—', 114, iy+25.2, 30, 46);
-  smallLabel('Contact', b.namaCP || b.noHpCP || '—', 114, iy+31.5, 30, 46);
+  let ry = boxY + 14.2;
+  ry = infoItem('Booking No', b.bookingNo || b.quotationRef || '—', rightBoxX+4, ry, colW-8);
+  ry = infoItem('Event', b.jenisEvent || '—', rightBoxX+4, ry, colW-8);
+  ry = infoItem('Date / Time', (displayDate(b.tarikhEvent) || '—') + ' • ' + (b.waktuEvent || 'TBC'), rightBoxX+4, ry, colW-8);
+  ry = infoItem('Venue', b.lokasiEvent || '—', rightBoxX+4, ry, colW-8);
+  ry = infoItem('Contact', [b.namaCP, b.noHpCP].filter(Boolean).join(' • ') || '—', rightBoxX+4, ry, colW-8);
 
   // ================= SERVICES =================
-  let y = 117;
+  let y = 126;
   sectionTitle('Services', left, y, usableW);
   y += 5.2;
 
@@ -1400,7 +1409,7 @@ function buildInvoicePDF(b){
   });
 
   // ================= PAYMENT SUMMARY =================
-  y = Math.max(doc.lastAutoTable.finalY + 6, 158);
+  y = Math.max(doc.lastAutoTable.finalY + 5, 164);
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(8.8);
@@ -1436,7 +1445,7 @@ function buildInvoicePDF(b){
   });
 
   // ================= PAYMENT DETAILS + TERMS =================
-  y = Math.max(doc.lastAutoTable.finalY + 8, 205);
+  y = Math.max(doc.lastAutoTable.finalY + 7, 210);
   const bottomBoxH = 43;
   doc.setFillColor(...soft);
   doc.roundedRect(left, y, 86, bottomBoxH, 2.5, 2.5, 'F');
@@ -1690,7 +1699,7 @@ function attachLoginEvents(){
 function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
-    ['invoices', I.doc, 'Invoices'], ['quotations', I.quote, 'Quotations'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
+    ['quotations', I.quote, 'Quotations'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
     ['accounts', I.chart, 'Account Statement'], ['settings', I.doc, 'Company e-Invoice'],
   ];
   const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
