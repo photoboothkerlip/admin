@@ -857,16 +857,46 @@ function emptyStaffInfo(){
   return { id:uid(), staffName:'', staffIC:'', staffPhone:'', staffBankName:'', staffBankNo:'', emergencyContact:'', address:'', status:'Active', remarks:'', createdAt:new Date().toISOString() };
 }
 function activeStaffInfo(){
-  return (State.staffInfo || []).filter(s => !s.status || s.status === 'Active').filter(s => String(s.staffName || '').trim());
+  // Robust active check: accepts Active, ACTIVE, active, blank, or missing status.
+  return (State.staffInfo || [])
+    .filter(s => {
+      const status = String(s.status || 'Active').trim().toLowerCase();
+      return status === 'active' || status === '';
+    })
+    .filter(s => String(s.staffName || '').trim());
 }
 function staffInfoOptions(){
-  return activeStaffInfo().map(s => ({ id:s.id, name:s.staffName, phone:s.staffPhone, ic:s.staffIC, bankName:s.staffBankName, bankNo:s.staffBankNo }));
+  // Main source: Staff Information tab.
+  // Fallback: existing Staff Allowance records, so dropdown still works if old data exists.
+  const map = new Map();
+  activeStaffInfo().forEach(s => {
+    const name = String(s.staffName || '').trim();
+    if(name) map.set(name.toLowerCase(), {
+      id:s.id, name, phone:s.staffPhone || '', ic:s.staffIC || '',
+      bankName:s.staffBankName || '', bankNo:s.staffBankNo || ''
+    });
+  });
+  (State.staff || []).forEach(s => {
+    const name = String(s.staffName || '').trim();
+    if(name && !map.has(name.toLowerCase())) map.set(name.toLowerCase(), {
+      id:s.id, name, phone:s.staffPhone || '', ic:s.staffIC || '',
+      bankName:s.staffBankName || '', bankNo:s.staffBankNo || ''
+    });
+  });
+  return Array.from(map.values()).sort((a,b)=>a.name.localeCompare(b.name));
 }
 function findStaffInfoByName(name){
-  return activeStaffInfo().find(s=>String(s.staffName||'').trim().toLowerCase() === String(name||'').trim().toLowerCase());
+  const target = String(name || '').trim().toLowerCase();
+  const fromInfo = activeStaffInfo().find(s => String(s.staffName || '').trim().toLowerCase() === target);
+  if(fromInfo) return fromInfo;
+  const opt = staffInfoOptions().find(s => String(s.name || '').trim().toLowerCase() === target);
+  return opt ? { staffName:opt.name, staffPhone:opt.phone, staffIC:opt.ic, staffBankName:opt.bankName, staffBankNo:opt.bankNo } : null;
 }
 function findStaffInfoById(id){
-  return activeStaffInfo().find(s => String(s.id) === String(id));
+  const fromInfo = activeStaffInfo().find(s => String(s.id) === String(id));
+  if(fromInfo) return fromInfo;
+  const opt = staffInfoOptions().find(s => String(s.id) === String(id));
+  return opt ? { staffName:opt.name, staffPhone:opt.phone, staffIC:opt.ic, staffBankName:opt.bankName, staffBankNo:opt.bankNo } : null;
 }
 function quotationTotal(q){ return num(q.pakejPrice)+num(q.addOnPrice)+num(q.transportCharges)-num(q.discount); }
 function quotationTax(q){ return quotationTotal(q) * num(q.sstPercent)/100; }
@@ -2563,9 +2593,9 @@ function renderFormModal(){
         <div id="form-warn" style="display:none;align-items:flex-start;gap:8px;background:var(--dangerSoft);color:var(--danger);border-radius:12px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">${I.alert}<span id="form-warn-text"></span></div>
         <div class="grid2">
           ${meta.map(([key,label,t,opts])=> t==='select'
-            ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${opts.map(o=>`<option ${data[key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
+            ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${opts.map(o=>`<option ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
             : t==='selectDynamic'
-              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}"><option value="">Select staff from Staff Information</option>${staffInfoOptions().map(o=>`<option value="${esc(o.name)}" data-staff-id="${esc(o.id)}" ${data[key]===o.name?'selected':''}>${esc(o.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">This dropdown is linked to Staff Information. Phone, IC, Bank Name and Account Number will auto-fill.</div></div>`
+              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}"><option value="">Select staff from Staff Information</option>${staffInfoOptions().map(o=>`<option value="${esc(o.name)}" data-staff-id="${esc(o.id)}" ${String(data[key]||'').toLowerCase()===String(o.name||'').toLowerCase()?'selected':''}>${esc(o.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">This dropdown is linked to Staff Information. Phone, IC, Bank Name and Account Number will auto-fill.</div></div>`
               : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" data-key="${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} ${type==='staff' && ['staffPhone','staffIC','staffBankName','staffBankNo'].includes(key)?'readonly title="Auto-filled from Staff Information" style="background:var(--surface);font-weight:700"':''} /></div>`
           ).join('')}
           ${extra}
@@ -3115,6 +3145,10 @@ function shouldAutoUppercase(el){
 }
 function normaliseInputValue(key, type, value){
   if(type === 'number') return Number(value) || 0;
+  if(key === 'status') {
+    const v = String(value || '').trim();
+    return v.toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+  }
   if(isEmailKey(key) || type === 'email') return String(value || '').trim();
   if(['text','tel','textarea','select'].includes(type)) return String(value || '').toUpperCase().trim();
   return value;
