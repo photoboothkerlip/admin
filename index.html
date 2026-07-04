@@ -571,6 +571,24 @@ body.light .event-status{
   }
 }
 
+
+
+/* =========================================================
+   AUTO UPPERCASE FORM DISPLAY - EXCEPT EMAIL
+   ========================================================= */
+input[type="text"],
+input[type="tel"],
+textarea,
+select{
+  text-transform:uppercase !important;
+}
+
+input[type="email"],
+input[name*="email" i],
+input[id*="email" i]{
+  text-transform:none !important;
+}
+
 </style>
 </head>
 <body>
@@ -2999,6 +3017,48 @@ function exportBookingsListPDF(){
   doc.save(`kerlip-bookings-${todayISO()}.pdf`);
   showToast('PDF list downloaded.');
 }
+
+
+
+/* ==========================================================
+   AUTO UPPERCASE DATA ENTRY - EXCEPT EMAIL
+   Converts typed text to uppercase before it is saved/used.
+   Email fields remain unchanged.
+   ========================================================== */
+function isEmailField(el){
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  const id = (el.id || '').toLowerCase();
+  const name = (el.name || '').toLowerCase();
+  const key = (el.dataset && (el.dataset.key || el.dataset.field || '')) ? String(el.dataset.key || el.dataset.field).toLowerCase() : '';
+  return type === 'email' || id.includes('email') || name.includes('email') || key.includes('email');
+}
+
+function shouldAutoUppercase(el){
+  if(!el || !el.matches) return false;
+  if(isEmailField(el)) return false;
+  if(el.matches('input[type="password"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="url"]')) return false;
+  return el.matches('input[type="text"], input[type="tel"], input:not([type]), textarea');
+}
+
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(!shouldAutoUppercase(el)) return;
+
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const original = el.value;
+  const upper = original.toUpperCase();
+
+  if(original !== upper){
+    el.value = upper;
+    try{ el.setSelectionRange(start, end); }catch(err){}
+  }
+});
+
+document.addEventListener('change', function(e){
+  const el = e.target;
+  if(shouldAutoUppercase(el)) el.value = el.value.toUpperCase();
+});
 
 /* ======================= BOOT ======================= */
 applyTheme();
