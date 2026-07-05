@@ -974,7 +974,18 @@ const PACKAGE_DURATION_OPTIONS = {
 };
 const PACKAGE_HOURS_OPTIONS = ['3','4','5','6','7','8'];
 function packageTypeOptions(){ return PACKAGE_TYPE_OPTIONS; }
-function packageHoursOptionsFor(type){ return PACKAGE_DURATION_OPTIONS[String(type||'PHOTOBOOTH').toUpperCase()] || PACKAGE_HOURS_OPTIONS; }
+function packageHoursOptionsFor(type){
+  const key = String(type || 'PHOTOBOOTH').trim().toUpperCase();
+  return (PACKAGE_DURATION_OPTIONS && PACKAGE_DURATION_OPTIONS[key]) ? PACKAGE_DURATION_OPTIONS[key] : PACKAGE_HOURS_OPTIONS;
+}
+function ensurePackageDefaults(obj={}){
+  obj.packageType = String(obj.packageType || 'PHOTOBOOTH').trim().toUpperCase();
+  const hours = packageHoursOptionsFor(obj.packageType);
+  obj.packageHours = String(obj.packageHours || detectPackageHours(obj) || hours[0] || '3');
+  if(!hours.includes(String(obj.packageHours))) obj.packageHours = hours[0] || '3';
+  obj.pakej = buildPackageName(obj.packageType, obj.packageHours);
+  return obj;
+}
 function buildPackageName(type,hours){
   const t = String(type||'PHOTOBOOTH').toUpperCase();
   const h = String(hours||'').trim();
@@ -2607,7 +2618,7 @@ function renderFormModal(){
           ${meta.map(([key,label,t,opts])=> t==='select'
             ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${opts.map(o=>`<option ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
             : t==='selectDynamicPackageHours'
-              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${packageHoursOptionsFor(data.packageType).map(o=>`<option ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
+              ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${packageHoursOptionsFor(data.packageType).map(o=>`<option value="${esc(o)}" ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)} HOURS</option>`).join('')}</select></div>`
             : t==='readonly'
               ? `<div class="field"><span class="label">${label}</span><input class="input" type="text" id="ff-${key}" data-key="${key}" value="${esc(data[key] || buildPackageName(data.packageType,data.packageHours))}" readonly style="background:var(--surface);font-weight:700" /></div>`
             : t==='selectDynamic'
@@ -2767,7 +2778,7 @@ function attachGlobalEvents(){
     const refreshPackageName = () => {
       const validHours = packageHoursOptionsFor(packageTypeSelect.value);
       const currentHour = packageHoursSelect.value;
-      packageHoursSelect.innerHTML = validHours.map(h=>`<option ${String(h)===String(currentHour)?'selected':''}>${h}</option>`).join('');
+      packageHoursSelect.innerHTML = validHours.map(h=>`<option value="${esc(h)}" ${String(h)===String(currentHour)?'selected':''}>${esc(h)} HOURS</option>`).join('');
       if(!validHours.includes(packageHoursSelect.value)) packageHoursSelect.value = validHours[0] || '';
       packageNameInput.value = buildPackageName(packageTypeSelect.value, packageHoursSelect.value);
     };
@@ -2895,7 +2906,11 @@ function attachGlobalEvents(){
 }
 function renderPreserveScroll(){ $('main').innerHTML = renderMain(); attachGlobalEvents(); }
 
-function openForm(type, data){ State.formModal = { type, data }; render(); }
+function openForm(type, data){
+  if(type === 'booking' || type === 'quotation') data = ensurePackageDefaults({...data});
+  State.formModal = { type, data };
+  render();
+}
 function closeForm(){ State.formModal = null; render(); }
 
 function submitForm(e){
@@ -2906,8 +2921,7 @@ function submitForm(e){
   meta.forEach(([key,label,t]) => { const el = $('ff-'+key); if(el) out[key] = normaliseInputValue(key, t, el.value); });
 
   if(type==='booking'){
-    out.packageType = (out.packageType || 'PHOTOBOOTH').toUpperCase();
-    out.pakej = buildPackageName(out.packageType, out.packageHours);
+    ensurePackageDefaults(out);
     out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
     const clash = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent && out.waktuEvent.trim() && x.waktuEvent.trim().toLowerCase()===out.waktuEvent.trim().toLowerCase());
@@ -2926,8 +2940,7 @@ function submitForm(e){
   }
 
   if(type==='quotation'){
-    out.packageType = (out.packageType || 'PHOTOBOOTH').toUpperCase();
-    out.pakej = buildPackageName(out.packageType, out.packageHours);
+    ensurePackageDefaults(out);
     out.status = $('ff-status').value;
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
     delete out._isNew;
