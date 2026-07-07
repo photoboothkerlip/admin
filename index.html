@@ -1109,38 +1109,32 @@ function footerNote(doc){
 function buildQuotationPDF(q){
   const doc = new window.jspdf.jsPDF();
 
-  // Match the approved sample PDF: black typography, clean tables, premium total card.
+  // Quotation layout matched to approved reference PDF:
+  // Kerlip_Premium_Quotation_TotalPrice_Card.pdf
   const black = [0,0,0];
   const white = [255,255,255];
   const light = [245,245,245];
   const line = [221,221,221];
   const gold = [176,138,62];
-  const muted = [55,55,55];
 
   const company = companyProfile ? companyProfile() : defaultCompanyProfile();
   const total = quotationGrandTotal(q);
-  const deposit = num(q.depositRequired);
   const quoteNo = q.quotationNumber || ('QT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5));
   const quoteDate = q.quotationDate || todayISO();
   const status = (q.status || 'SENT').toUpperCase();
 
-  const safe = v => (v === undefined || v === null || String(v).trim()==='') ? '—' : String(v).toUpperCase();
-  const safeEmail = v => (v === undefined || v === null || String(v).trim()==='') ? '—' : String(v);
+  const safe = (v) => (v === undefined || v === null || String(v).trim()==='') ? '—' : String(v).toUpperCase();
+  const safeEmail = (v) => (v === undefined || v === null || String(v).trim()==='') ? '—' : String(v);
   const split = (txt,w) => doc.splitTextToSize(String(txt || '—'), w);
 
-  function validUntil(){
-    const d = new Date(quoteDate || todayISO());
-    if(isNaN(d.getTime())) return displayDate(quoteDate);
-    d.setDate(d.getDate()+14);
-    return displayDate(d.toISOString().slice(0,10));
-  }
-  function cellText(txt,x,y,w,opts={}){
+  function write(txt,x,y,opts={}){
     doc.setTextColor(...(opts.color || black));
     doc.setFont('helvetica', opts.style || 'normal');
-    doc.setFontSize(opts.size || 8.4);
-    doc.text(split(txt,w),x,y);
+    doc.setFontSize(opts.size || 8);
+    doc.text(split(txt, opts.w || 180), x, y, opts.align ? {align:opts.align} : undefined);
   }
-  function sectionHeader(txt,x,y,w){
+
+  function headerCell(txt,x,y,w){
     doc.setFillColor(...light);
     doc.setDrawColor(...line);
     doc.setLineWidth(0.3);
@@ -1148,192 +1142,161 @@ function buildQuotationPDF(q){
     doc.setTextColor(...black);
     doc.setFont('helvetica','bold');
     doc.setFontSize(8.5);
-    doc.text(txt.toUpperCase(),x+4,y+5.4);
+    doc.text(txt.toUpperCase(),x+4,y+5.3);
   }
-  function tableBox(x,y,w,h){
+
+  function box(x,y,w,h){
     doc.setDrawColor(...line);
     doc.setLineWidth(0.3);
     doc.rect(x,y,w,h);
   }
 
   // ================= HEADER =================
+  let y = 18;
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(18);
-  doc.text((company.businessName || 'KERLIP STUDIO ENTERPRISE').toUpperCase(),14,18);
+  doc.text((company.businessName || 'KERLIP STUDIO ENTERPRISE').toUpperCase(),14,y);
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8.2);
-  doc.text('('+(company.registrationNo || '003615278-U')+')',14,25);
-  doc.setFontSize(7.7);
-  const address = [company.address1, company.address2, [company.postcode,company.city].filter(Boolean).join(' '), company.state]
-    .filter(Boolean).join(', ') || '36 JALAN ALAM SURIA 16/72, SEKSYEN 16, 42300 PUNCAK ALAM, SELANGOR';
-  doc.text(split(address.toUpperCase(),100),14,32);
+  doc.setFontSize(8.4);
+  doc.text('('+(company.registrationNo || '003615278-U')+')',14,y+7);
+
+  const addressLine1 = (company.address1 || '36 JALAN ALAM SURIA 16/72').toUpperCase();
+  const addressLine2 = [company.address2 || 'SEKSYEN 16', [company.postcode || '42300', company.city || 'PUNCAK ALAM'].filter(Boolean).join(' '), company.state || 'SELANGOR'].filter(Boolean).join(', ').toUpperCase();
+  doc.text(addressLine1,14,y+16);
+  doc.text(addressLine2,14,y+23);
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(24);
   doc.text('QUOTATION',105,54,{align:'center'});
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8.3);
-  doc.setTextColor(...black);
+  doc.setFontSize(8.4);
   doc.text('Quotation No: '+quoteNo,14,64);
   doc.text('Date: '+displayDate(quoteDate),80,64);
-  doc.text('Valid Until: '+validUntil(),125,64);
-  doc.text('Status: '+status,175,64);
+  doc.text('Status: '+status,134,64);
 
-  // ================= CLIENT / EVENT INFO =================
-  const topY = 72;
-  const colW = 89;
-  const rowH = 8.5;
+  // ================= CLIENT / EVENT INFORMATION =================
+  y = 72;
   const leftX = 14;
   const rightX = 107;
+  const colW = 89;
+  const infoH = 42;
 
-  sectionHeader('Client Information', leftX, topY, colW);
-  sectionHeader('Event Information', rightX, topY, colW);
-  tableBox(leftX,topY,colW,50);
-  tableBox(rightX,topY,colW,50);
+  headerCell('Client Information',leftX,y,colW);
+  headerCell('Event Information',rightX,y,colW);
+  box(leftX,y,colW,infoH);
+  box(rightX,y,colW,infoH);
 
-  const clientRows = [
-    ['Name', safe(q.namaClient)],
-    ['Company', safe(q.buyerCompany || q.namaClient)],
-    ['Phone', safe(q.noHpClient)],
-    ['Email', safeEmail(q.buyerEmail)]
+  const clientValues = [
+    safe(q.namaClient),
+    safe(q.buyerCompany || q.namaClient),
+    safe(q.noHpClient),
+    safeEmail(q.buyerEmail)
   ];
-  const eventRows = [
-    ['Event Type', safe(q.jenisEvent)],
-    ['Event Date', displayDate(q.tarikhEvent)],
-    ['Event Time', safe(q.waktuEvent || 'TBC')],
-    ['Venue', safe(q.lokasiEvent)]
-  ];
-
-  clientRows.forEach((r,i)=>{
-    const yy = topY + 16 + i*rowH;
-    cellText(r[0]+':',leftX+4,yy,22,{style:'bold',size:7.5,color:muted});
-    cellText(r[1],leftX+30,yy,54,{style:'normal',size:7.8,color:black});
-  });
-  eventRows.forEach((r,i)=>{
-    const yy = topY + 16 + i*rowH;
-    cellText(r[0]+':',rightX+4,yy,25,{style:'bold',size:7.5,color:muted});
-    cellText(r[1],rightX+33,yy,50,{style:'normal',size:7.8,color:black});
-  });
-
-  // ================= PACKAGE INCLUDES =================
-  let y = 134;
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(11.5);
-  doc.setTextColor(...black);
-  doc.text('PACKAGE INCLUDES',14,y);
-  doc.setDrawColor(...gold);
-  doc.setLineWidth(0.6);
-  doc.line(14,y+3,50,y+3);
-
-  const packageTitle = safe(q.pakej || q.packageName || 'PREMIUM PHOTOBOOTH PACKAGE');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(9.2);
-  doc.text(packageTitle,14,y+13);
-
-  const features = quotationFeatureList(q).map(x=>String(x).replace(/LEATHER KEYCHAIN/gi,'KEYCHAIN').toUpperCase());
-  const items = features.length ? features : [
-    'UNLIMITED INSTANT PRINTING',
-    'CUSTOM ARTWORK DESIGN',
-    'PROFESSIONAL LIGHTING',
-    'FREE 100 PCS KEYCHAIN',
-    'GUEST BOOK',
-    'DIGITAL SOFT COPY',
-    'SETUP & DISMANTLE'
+  const eventValues = [
+    safe(q.jenisEvent),
+    displayDate(q.tarikhEvent),
+    safe(q.waktuEvent || 'TBC'),
+    safe(q.lokasiEvent)
   ];
 
   doc.setFont('helvetica','normal');
-  doc.setFontSize(8.2);
+  doc.setFontSize(8.1);
   doc.setTextColor(...black);
-  const itemCols = [18,78,138];
-  const iconColors = [[22,163,74],[37,99,235],[139,92,246],[245,158,11],[15,118,110],[239,68,68],[176,138,62],[14,165,233]];
-  items.slice(0,12).forEach((item,i)=>{
-    const xx = itemCols[i%3];
-    const yy = y + 25 + Math.floor(i/3)*10;
-    const c = iconColors[i % iconColors.length];
-    doc.setFillColor(...c);
-    doc.circle(xx,yy-1.7,1.6,'F');
-    doc.setTextColor(...white);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(5.2);
-    doc.text('✓',xx,yy-0.3,{align:'center'});
-    doc.setTextColor(...black);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7.4);
-    doc.text(split(item,46),xx+5,yy);
+  clientValues.forEach((txt,i)=>doc.text(split(txt,75),leftX+6,y+17+(i*7.4)));
+  eventValues.forEach((txt,i)=>doc.text(split(txt,75),rightX+6,y+17+(i*7.4)));
+
+  // ================= PACKAGE INCLUDES =================
+  y = 128;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11.5);
+  doc.text('PACKAGE INCLUDES',14,y);
+
+  let rawFeatures = [];
+  try{ rawFeatures = quotationFeatureList(q) || []; }catch(e){ rawFeatures = []; }
+  let items = rawFeatures.map(x=>String(x).replace(/LEATHER KEYCHAIN/gi,'KEYCHAIN').toUpperCase());
+  if(!items.length){
+    items = [
+      'UNLIMITED INSTANT PRINTING',
+      'CUSTOM ARTWORK DESIGN',
+      'PROFESSIONAL LIGHTING',
+      'FREE 100 PCS KEYCHAIN',
+      'GUEST BOOK',
+      'DIGITAL SOFT COPY',
+      'SETUP & DISMANTLE'
+    ];
+  }
+  items = items.filter(x => !/LEATHER/i.test(x));
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.6);
+  doc.setTextColor(...black);
+  let itemY = y + 10;
+  items.slice(0,9).forEach((item)=>{
+    doc.text('• '+item,18,itemY);
+    itemY += 7;
   });
 
   // ================= TOTAL PRICE CARD =================
-  y = 184;
+  y = Math.max(183, itemY + 6);
   const priceX = 14;
   const priceW = 80;
-  const priceH = 28;
+  const headH = 10;
+  const amountH = 18;
   doc.setDrawColor(...gold);
-  doc.setLineWidth(0.75);
+  doc.setLineWidth(0.7);
   doc.setFillColor(...white);
-  doc.roundedRect(priceX,y,priceW,priceH,2.2,2.2,'FD');
+  doc.rect(priceX,y,priceW,headH+amountH,'FD');
 
   doc.setFillColor(...black);
-  doc.rect(priceX,y,priceW,9,'F');
+  doc.rect(priceX,y,priceW,headH,'F');
   doc.setTextColor(...white);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.text('TOTAL PRICE',priceX+priceW/2,y+6.2,{align:'center'});
+  doc.setFontSize(9.5);
+  doc.text('TOTAL PRICE',priceX+(priceW/2),y+6.7,{align:'center'});
 
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(18);
-  doc.text(rmVal(total),priceX+priceW/2,y+22,{align:'center'});
-
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7.4);
-  doc.setTextColor(...muted);
-  doc.text('Deposit Required: '+rmVal(deposit),105,y+10);
-  doc.text('Balance: '+rmVal(Math.max(0,total-deposit)),105,y+17);
-  doc.text('Quotation Valid Until: '+validUntil(),105,y+24);
+  doc.text(rmVal(total),priceX+(priceW/2),y+22.4,{align:'center'});
 
   // ================= PAYMENT + TERMS =================
   y = 229;
-  const bottomH = 44;
-  sectionHeader('Payment Information',14,y,85);
-  sectionHeader('Terms & Conditions',105,y,91);
-  tableBox(14,y,85,bottomH);
-  tableBox(105,y,91,bottomH);
+  const payW = 85;
+  const termW = 95;
+  const bottomH = 46;
+  headerCell('Payment Information',14,y,payW);
+  headerCell('Terms & Conditions',101,y,termW);
+  box(14,y,payW,bottomH);
+  box(101,y,termW,bottomH);
 
+  const bankY = y + 20;
+  doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
-  doc.setTextColor(...black);
-  doc.setFontSize(8.2);
-  doc.text((company.bankName || 'CIMB BANK BERHAD').toUpperCase(),20,y+19);
+  doc.setFontSize(8.4);
+  doc.text((company.bankName || 'CIMB BANK BERHAD').toUpperCase(),22,bankY);
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.5);
-  doc.text((company.accountName || company.businessName || 'KERLIP STUDIO ENTERPRISE').toUpperCase(),20,y+29);
-  doc.text(company.accountNo || '8605915158',20,y+37);
+  doc.setFontSize(8.0);
+  doc.text((company.accountName || company.businessName || 'KERLIP STUDIO ENTERPRISE').toUpperCase(),22,bankY+10);
+  doc.text(company.accountNo || '8605915158',22,bankY+18);
 
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(...black);
-  doc.setFontSize(7.4);
   const terms = [
     '• DEPOSIT REQUIRED TO CONFIRM BOOKING.',
     '• FULL PAYMENT BEFORE EVENT.',
     '• ARTWORK CONFIRMATION 3 DAYS BEFORE EVENT.',
     '• COMPUTER GENERATED. NO SIGNATURE REQUIRED.'
   ];
-  doc.text(terms,111,y+18);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.6);
+  doc.text(terms,109,bankY);
 
   // ================= FOOTER =================
-  doc.setDrawColor(...line);
-  doc.setLineWidth(0.35);
-  doc.line(14,282,196,282);
   doc.setTextColor(...black);
   doc.setFont('helvetica','bold');
   doc.setFontSize(8.8);
-  doc.text('THANK YOU FOR CHOOSING KERLIP PHOTOBOOTH',14,289);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(...muted);
-  doc.setFontSize(6.8);
-  doc.text('Generated on '+new Date().toLocaleString('en-MY')+' • Page 1 of 1',14,294);
+  doc.text('THANK YOU FOR CHOOSING KERLIP PHOTOBOOTH',14,288);
 
   return doc;
 }
