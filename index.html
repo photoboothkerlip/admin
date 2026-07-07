@@ -921,7 +921,7 @@ function getAutoPackageBenefits(eventType, packageHours){
 
   // All event types: 4 hours and above receive free premium keychain.
   if(hours >= 4){
-    benefits.push({ key:'keychain100', label:'FREE 100PCS PREMIUM LEATHER KEYCHAIN' });
+    benefits.push({ key:'keychain100', label:'FREE 100 PCS KEYCHAIN' });
   }
 
   // Wedding only: 4 hours and above receive free guest book.
@@ -1223,10 +1223,12 @@ function buildQuotationPDF(q){
   const colX = [18,78,138];
   let fY = y + 30;
   doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...black);
+  const iconPalette = [[22,163,74],[37,99,235],[139,92,246],[245,158,11],[15,118,110],[239,68,68],[176,138,62],[14,165,233]];
   features.slice(0,12).forEach((f,i)=>{
     const xx = colX[i%3];
     const yy = fY + Math.floor(i/3)*9;
-    doc.setFillColor(...gold); doc.circle(xx,yy-1.6,1.6,'F');
+    const c = iconPalette[i % iconPalette.length];
+    doc.setFillColor(...c); doc.circle(xx,yy-1.6,1.6,'F');
     doc.setTextColor(...white); doc.setFont('helvetica','bold'); doc.setFontSize(5.4); doc.text('✓',xx,yy-0.2,{align:'center'});
     doc.setTextColor(...black); doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.text(split(f,46),xx+5,yy);
   });
@@ -1234,41 +1236,40 @@ function buildQuotationPDF(q){
   // ================= TOTAL PRICE =================
   y = 171;
   lineAt(14,y,196);
-  y += 11;
-  doc.setFont('helvetica','bold'); doc.setFontSize(8.8); doc.setTextColor(...black);
-  doc.text('TOTAL PRICE',14,y);
-  doc.setFontSize(25); doc.setTextColor(...gold);
-  doc.text(rmVal(total),14,y+13);
 
-  // Price breakdown on left under total
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...black);
-  const rows = [
-    ['Package Total', packageTotal],
-    ['Transportation', transport],
-    ['Discount', discount],
-    ['Tax', taxAmount],
-    ['Deposit Required', deposit]
-  ];
-  let sy = y + 27;
-  rows.forEach(([k,v])=>{
-    doc.setFont('helvetica','normal'); doc.text(k,14,sy);
-    doc.setFont('helvetica','bold'); doc.text(rmVal(v),78,sy,{align:'right'});
-    sy += 5.7;
-  });
+  // Premium total price card: fixed height so amount always stays inside box
+  y += 10;
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.65);
+  doc.setFillColor(...white);
+  doc.roundedRect(14,y,182,37,3,3,'FD');
 
-  // Short validity note on right
-  card(106,y-6,90,38);
-  sectionTitle('Next Step',112,y+2);
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.4); doc.setTextColor(...black);
-  const nextLines = [
-    '1. REVIEW THIS QUOTATION.',
-    '2. MAKE DEPOSIT PAYMENT TO CONFIRM BOOKING.',
-    '3. FINALIZE ARTWORK 3 DAYS BEFORE EVENT.'
-  ];
-  doc.text(nextLines,112,y+13);
+  doc.setFillColor(...dark);
+  doc.roundedRect(14,y,182,10,3,3,'F');
+  doc.setTextColor(...white);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.6);
+  doc.text('TOTAL PRICE',20,y+6.8);
+
+  doc.setTextColor(...black);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(22);
+  doc.text(rmVal(total),20,y+27);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.4);
+  doc.setTextColor(...muted);
+  doc.text('Valid until: '+validUntil,190,y+20,{align:'right'});
+  doc.text('Deposit required: '+rmVal(deposit),190,y+28,{align:'right'});
+
+  // Short next step line under total card
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(...black);
+  doc.text('Next step: Review quotation, make deposit payment, and finalize artwork 3 days before event.',14,y+48);
 
   // ================= PAYMENT + TERMS =================
-  y = 224;
+  y = 229;
   card(14,y,87,43);
   card(109,y,87,43);
   sectionTitle('Payment Information',18,y+8);
@@ -2248,18 +2249,32 @@ function statMini(label,value){
 /* ======================= QUOTATIONS VIEW ======================= */
 function renderQuotations(){
   const rows = State.quotations;
+  const totalQuotationValue = rows.reduce((sum,q)=>sum+quotationGrandTotal(q),0);
+  const acceptedCount = rows.filter(q=>String(q.status||'').toLowerCase()==='accepted').length;
+  const pendingCount = rows.filter(q=>['draft','sent'].includes(String(q.status||'').toLowerCase())).length;
   return `
   <div style="display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;justify-content:flex-end">
+    <div class="card" style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Quotation Summary</div>
+        <div class="serif" style="font-size:28px;font-weight:700;margin-top:3px">Quotations</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${statMini('Total Quotations', rows.length)}
+        ${statMini('Accepted', acceptedCount)}
+        ${statMini('Draft / Sent', pendingCount)}
+        ${statMini('Total Value', rmVal(totalQuotationValue))}
+      </div>
       <button class="btn btn-dark" id="btn-new-quotation">${I.plus} New Quotation</button>
     </div>
     <div class="card table-card table-scroll">
       <table>
-        <thead><tr>${['No.','Date','Client','Event Date','Package','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['No.','Quotation No.','Date','Client','Event Date','Package','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
-          ${rows.map(q=>{
+          ${rows.map((q,index)=>{
             const total = quotationGrandTotal(q), bal = total-num(q.depositRequired);
             return `<tr>
+              <td style="font-weight:800;text-align:center">${index+1}</td>
               <td style="font-weight:600">${q.quotationNumber}</td>
               <td>${displayDate(q.quotationDate)}</td>
               <td>${esc(q.namaClient)}</td>
@@ -2276,7 +2291,7 @@ function renderQuotations(){
                 ${q.status!=='Accepted' ? `<button class="btn" style="padding:5px 9px;font-size:11px" data-convert="${q.id}">Convert to Booking</button>` : `<span style="font-size:11px;color:var(--success);font-weight:700;align-self:center">Booked ✓</span>`}
               </div></td>
             </tr>`;
-          }).join('') || `<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
+          }).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
         </tbody>
       </table>
     </div>
