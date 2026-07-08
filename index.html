@@ -695,8 +695,8 @@ function defaultCompanyProfile(){
     sstNo:'N/A',
     tourismTaxNo:'N/A',
     email:'kerlip.studio@gmail.com',
-    phone:'',
-    website:'',
+    phone:'019-2847854',
+    website:'www.kerlipphotobooth.com',
     address1:'36, JALAN ALAM SURIA 16/72',
     address2:'SEKSYEN 16 PUNCAK ALAM',
     postcode:'42300',
@@ -1634,36 +1634,76 @@ function buildInvoicePDF(b){
 
 function buildReceiptPDF(b){
   const doc = new window.jspdf.jsPDF();
-  const docNo = 'RCT-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  const company = companyProfile ? companyProfile() : defaultCompanyProfile();
+  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
+  const docNo = 'RCT-' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
 
-  // Receipt payment calculation rule:
-  // 1) Deposit Paid always refers to the booking deposit field: bayaranDeposit.
-  // 2) Balance Remaining = Full Amount - Deposit Paid.
-  // 3) If Payment Status is Paid, Balance Remaining must be RM0.00.
   const totalAmount = num(b.jumlahKeseluruhan);
   const depositPaid = num(b.bayaranDeposit);
-  const isPaid = String(b.paymentStatus || '').toLowerCase() === 'paid';
-  const amountReceived = isPaid ? totalAmount : depositPaid;
-  const balanceRemaining = isPaid ? 0 : Math.max(0, totalAmount - depositPaid);
+  const balanceRemaining = b.paymentStatus === 'Paid' ? 0 : Math.max(0, totalAmount - depositPaid);
 
   docHeader(doc,'Official Receipt',docNo);
+
+  // ================= COMPANY INFORMATION - TOP LEFT =================
   let y = 34;
-  y = docSectionTitle(doc,'Received From',y);
-  y = kvBlock(doc,[['Client Name',b.namaClient],['Phone',b.noHpClient],['Event Date',displayDate(b.tarikhEvent)]],16,y,90);
-  y += 2;
-  y = docSectionTitle(doc,'Payment Received',y);
-  doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
-    styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
-    head:[['Description','Amount (RM)']],
-    body:[['Total Package Amount', totalAmount.toFixed(2)],
-      ['Deposit Paid', depositPaid.toFixed(2)],
-      ['Amount Received', amountReceived.toFixed(2)],
-      ['Payment Status', b.paymentStatus]],
-  });
-  y = doc.lastAutoTable.finalY + 6;
   doc.setFont('helvetica','bold');
-  doc.text('Balance Remaining: '+rmVal(balanceRemaining),16,y); doc.setFont('helvetica','normal');
-  y += 12;
+  doc.setFontSize(10);
+  doc.setTextColor(140,108,46);
+  doc.text('COMPANY INFORMATION',16,y);
+  doc.setDrawColor(231,223,204);
+  doc.line(16,y+1.5,194,y+1.5);
+
+  y += 7;
+  doc.setTextColor(28,24,21);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(String(company.businessName || 'KERLIP STUDIO ENTERPRISE').toUpperCase(),16,y);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.2);
+  y += 5;
+  doc.text('Registration No: ' + (company.registrationNo || '003615278-U'),16,y);
+  y += 4.5;
+  doc.text('TIN No: ' + (company.tin || '—'),16,y);
+  y += 4.5;
+  doc.text('Phone: ' + (company.phone || '019-2847854'),16,y);
+  y += 4.5;
+  doc.text('Website: ' + (company.website || 'www.kerlipphotobooth.com'),16,y);
+  y += 4.5;
+  doc.text('Email: ' + (company.email || 'kerlip.studio@gmail.com'),16,y);
+  y += 4.5;
+  const addressLines = doc.splitTextToSize(companyAddress(company) || 'Puncak Alam, Selangor, Malaysia', 178).slice(0,2);
+  doc.text(addressLines,16,y);
+  y += (addressLines.length * 4.2) + 5;
+
+  // ================= RECEIVED FROM =================
+  y = docSectionTitle(doc,'Received From',y);
+  y = kvBlock(doc,[
+    ['Client Name',b.namaClient],
+    ['Phone',b.noHpClient],
+    ['Event Date',displayDate(b.tarikhEvent)],
+    ['Event Location',b.lokasiEvent || '—']
+  ],16,y,90);
+  y += 2;
+
+  // ================= PAYMENT RECEIVED =================
+  y = docSectionTitle(doc,'Payment Received',y);
+  doc.autoTable({
+    startY:y,
+    theme:'grid',
+    headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
+    styles:{fontSize:9,cellPadding:3},
+    margin:{left:16,right:16},
+    head:[['Description','Amount (RM)']],
+    body:[
+      ['Total Package Amount', totalAmount.toFixed(2)],
+      ['Deposit Paid', depositPaid.toFixed(2)],
+      ['Balance Remaining', balanceRemaining.toFixed(2)],
+      ['Payment Status', b.paymentStatus || '—']
+    ],
+    columnStyles:{1:{halign:'right',fontStyle:'bold'}}
+  });
+  y = doc.lastAutoTable.finalY + 12;
 
   // Receipt footer note — no signature required
   if(y > 260){ doc.addPage(); y = 20; }
