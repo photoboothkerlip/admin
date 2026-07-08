@@ -1379,10 +1379,12 @@ function buildInvoicePDF(b){
 
   const total = num(b.jumlahKeseluruhan);
   const transport = num(b.transportCharges);
-  const paidAmount = b.paymentStatus === 'Paid' ? total : num(b.bayaranDeposit);
+  // Deposit Paid must always follow the actual deposit field from the booking form.
+  // Do not auto-change it to the full total when Payment Status is "Paid".
+  const depositPaid = num(b.bayaranDeposit);
   const subtotal = total;
   const grandTotal = subtotal;
-  const balanceDue = Math.max(0, grandTotal - paidAmount);
+  const balanceDue = b.paymentStatus === 'Paid' ? 0 : Math.max(0, grandTotal - depositPaid);
   const serviceAmount = Math.max(0, total - transport);
 
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
@@ -1541,7 +1543,7 @@ function buildInvoicePDF(b){
     body:[
       ['Subtotal', rmVal(subtotal)],
       ['Transportation', rmVal(transport)],
-      ['Deposit Paid', rmVal(paidAmount)],
+      ['Deposit Paid', rmVal(depositPaid)],
       ['TOTAL PRICE', rmVal(grandTotal)],
       ['BALANCE DUE', rmVal(balanceDue)],
     ],
