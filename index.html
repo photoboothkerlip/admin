@@ -684,6 +684,70 @@ const parseTimeRange = (text) => {
 };
 
 
+/* ======================= DOCUMENT NUMBERING / FILE NAMING ======================= */
+const yyyymmdd = (iso) => String(iso || todayISO()).slice(0,10).replace(/-/g,'');
+const fileDate = (iso) => String(iso || todayISO()).slice(0,10);
+const pad4 = (n) => String(Math.max(1, Number(n) || 1)).padStart(4,'0');
+
+function dailyRunningNumber(list, dateIso){
+  const key = yyyymmdd(dateIso);
+  const sameDay = (Array.isArray(list) ? list : []).filter(x => yyyymmdd(x.bookingDate || x.quotationDate || x.createdAt || todayISO()) === key);
+  return pad4(sameDay.length + 1);
+}
+
+function createBookingId(dateIso=todayISO()){
+  return `KB-${yyyymmdd(dateIso)}-${dailyRunningNumber(State.bookings, dateIso)}`;
+}
+
+function getBookingId(obj={}){
+  if(obj.bookingId) return obj.bookingId;
+  const dateIso = obj.bookingDate || obj.quotationDate || obj.tarikhEvent || todayISO();
+  const suffix = String(obj.id || uid()).slice(-4).toUpperCase().replace(/[^A-Z0-9]/g,'').padStart(4,'0').slice(-4);
+  return `KB-${yyyymmdd(dateIso)}-${suffix}`;
+}
+
+function getQuotationNo(obj={}){
+  if(obj.quotationNumber && /^QT-KB-/i.test(obj.quotationNumber)) return obj.quotationNumber;
+  return `QT-${getBookingId(obj)}`;
+}
+
+function getInvoiceNo(obj={}){
+  return obj.invoiceNumber || `INV-${getBookingId(obj)}`;
+}
+
+function getReceiptNo(obj={}){
+  return obj.receiptNumber || `RCPT-${getBookingId(obj)}`;
+}
+
+function getBookingNo(obj={}){
+  return getBookingId(obj);
+}
+
+function cleanFilePart(v){
+  return String(v || '')
+    .replace(/[^a-z0-9._-]/gi,'-')
+    .replace(/-+/g,'-')
+    .replace(/^-|-$/g,'');
+}
+
+function documentFileName(kind, obj={}){
+  const master = getBookingId(obj);
+  const date = fileDate(obj.quotationDate || obj.bookingDate || obj.tarikhEvent || todayISO());
+  const docMap = {
+    booking:'Booking',
+    quotation:'Quotation',
+    invoice:'Invoice',
+    receipt:'Receipt'
+  };
+  const type = docMap[String(kind || '').toLowerCase()] || 'Document';
+  let docNo = master;
+  if(type === 'Quotation') docNo = getQuotationNo(obj);
+  if(type === 'Invoice') docNo = getInvoiceNo(obj);
+  if(type === 'Receipt') docNo = getReceiptNo(obj);
+  return `${date}_${cleanFilePart(docNo)}_${type}.pdf`;
+}
+
+
 /* ======================= COMPANY / E-INVOICE PROFILE ======================= */
 function defaultCompanyProfile(){
   return {
@@ -837,14 +901,18 @@ function sampleBooking(){
     calendarSynced:false, quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
 function emptyBooking(){
-  return { id:uid(), bookingDate:todayISO(), jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
+  const bookingDate = todayISO();
+  const bookingId = createBookingId(bookingDate);
+  return { id:uid(), bookingId, bookingDate, jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
     namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
 function emptyQuotation(){
-  const num_ = 'QUO-' + new Date().getFullYear() + '-' + String(State.quotations.length+1).padStart(3,'0');
-  return { id:uid(), quotationNumber:num_, quotationDate:todayISO(), namaClient:'', noHpClient:'', tarikhEvent:'',
+  const quotationDate = todayISO();
+  const bookingId = createBookingId(quotationDate);
+  const num_ = `QT-${bookingId}`;
+  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
     lokasiEvent:'', jenisEvent:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
@@ -1119,7 +1187,7 @@ function buildQuotationPDF(q){
 
   const company = companyProfile ? companyProfile() : defaultCompanyProfile();
   const total = quotationGrandTotal(q);
-  const quoteNo = q.quotationNumber || ('QT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5));
+  const quoteNo = getQuotationNo(q);
   const quoteDate = q.quotationDate || todayISO();
   const status = (q.status || 'SENT').toUpperCase();
 
@@ -1303,7 +1371,7 @@ function buildQuotationPDF(q){
 
 function buildBookingSummaryPDF(b){
   const doc = new window.jspdf.jsPDF();
-  const docNo = 'BKG-'+b.tarikhEvent.replace(/-/g,'')+'-'+b.id.slice(-4);
+  const docNo = getBookingNo(b);
   docHeader(doc,'Booking Summary',docNo);
   let y = 34;
   y = docSectionTitle(doc,'Client & Event Details',y);
@@ -1348,8 +1416,7 @@ function buildBookingSummaryPDF(b){
 function buildInvoicePDF(b){
   const doc = new window.jspdf.jsPDF('p','mm','a4');
   const company = companyProfile();
-  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
-  const docNo = (company.invoicePrefix || 'INV') + '-' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
+  const docNo = getInvoiceNo(b);
 
   // One-page premium invoice colours - high contrast black text update
   const black = [0,0,0];
@@ -1615,8 +1682,7 @@ function buildInvoicePDF(b){
 function buildReceiptPDF(b){
   const doc = new window.jspdf.jsPDF();
   const company = companyProfile ? companyProfile() : defaultCompanyProfile();
-  const safeDate = (b.tarikhEvent || todayISO()).replace(/-/g,'');
-  const docNo = 'RCT-' + safeDate + '-' + String(b.id || uid()).slice(-4).toUpperCase();
+  const docNo = getReceiptNo(b);
 
   const totalAmount = num(b.jumlahKeseluruhan);
   const depositPaid = num(b.bayaranDeposit);
@@ -2183,12 +2249,13 @@ function renderBookings(){
     </div>
     <div class="card table-card table-scroll">
       <table>
-        <thead><tr>${['No.','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['No.','Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map((b,idx)=>{
             const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
             return `<tr>
               <td style="font-weight:800;color:var(--muted)">${idx+1}</td>
+              <td style="font-weight:750">${getBookingId(b)}</td>
               <td>${displayDate(b.tarikhEvent)}</td>
               <td style="font-weight:600">${esc(b.namaClient)}</td>
               <td>${esc(b.noHpClient)}</td>
@@ -2206,7 +2273,7 @@ function renderBookings(){
                 <button class="btn-ghost" data-del="${b.id}" title="Delete">${I.trash}</button>
               </div></td>
             </tr>`;
-          }).join('') || `<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--muted)">No bookings match your search.</td></tr>`}
+          }).join('') || `<tr><td colspan="14" style="text-align:center;padding:28px;color:var(--muted)">No bookings match your search.</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -2247,7 +2314,7 @@ function renderInvoices(){
         <thead><tr>${['Invoice No.','Event Date','Client','Phone','Package','Total','Paid','Outstanding','Payment','Booking','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map(b=>{
-            const invoiceNo = 'INV-'+(b.tarikhEvent||todayISO()).replace(/-/g,'')+'-'+b.id.slice(-4);
+            const invoiceNo = getInvoiceNo(b);
             const paidAmount = b.paymentStatus==='Paid' ? num(b.jumlahKeseluruhan) : num(b.bayaranDeposit);
             const outstanding = Math.max(0, num(b.jumlahKeseluruhan)-paidAmount);
             return `<tr>
@@ -2309,7 +2376,7 @@ function renderQuotations(){
             const total = quotationGrandTotal(q), bal = total-num(q.depositRequired);
             return `<tr>
               <td style="font-weight:800;text-align:center">${index+1}</td>
-              <td style="font-weight:600">${q.quotationNumber}</td>
+              <td style="font-weight:600">${getQuotationNo(q)}</td>
               <td>${displayDate(q.quotationDate)}</td>
               <td>${esc(q.namaClient)}</td>
               <td>${displayDate(q.tarikhEvent)}</td>
@@ -2904,7 +2971,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-invoice-download]').forEach(el => el.onclick = () => {
     const b = State.bookings.find(x=>x.id===el.dataset.invoiceDownload);
     const doc = buildInvoicePDF(b);
-    const filename = `invoice-${b.namaClient}-${displayDate(b.tarikhEvent)}`.replace(/[^a-z0-9.\- ]/gi,'').replace(/\s+/g,'-').toLowerCase()+'.pdf';
+    const filename = documentFileName('invoice', b);
     doc.save(filename);
     showToast('Invoice PDF downloaded.');
   });
@@ -3049,16 +3116,15 @@ function handlePdfAction(action){
   const { kind, obj } = State.docModal;
   let doc, filename, waPhone, waName;
   if(kind==='booking'){
-    if(docType==='Booking Summary'){ doc = buildBookingSummaryPDF(obj); filename = `booking-summary-${obj.namaClient}.pdf`; }
-    else if(docType==='Invoice'){ doc = buildInvoicePDF(obj); filename = `invoice-${obj.namaClient}.pdf`; }
-    else { doc = buildReceiptPDF(obj); filename = `receipt-${obj.namaClient}.pdf`; }
+    if(docType==='Booking Summary'){ doc = buildBookingSummaryPDF(obj); filename = documentFileName('booking', obj); }
+    else if(docType==='Invoice'){ doc = buildInvoicePDF(obj); filename = documentFileName('invoice', obj); }
+    else { doc = buildReceiptPDF(obj); filename = documentFileName('receipt', obj); }
     waPhone = obj.noHpClient; waName = obj.namaClient;
   } else if(kind==='quotation'){
-    doc = buildQuotationPDF(obj); filename = `quotation-${obj.quotationNumber}.pdf`; waPhone = obj.noHpClient; waName = obj.namaClient;
+    doc = buildQuotationPDF(obj); filename = documentFileName('quotation', obj); waPhone = obj.noHpClient; waName = obj.namaClient;
   } else {
-    doc = buildStaffPDF(obj); filename = `staff-allowance-${obj.staffName}.pdf`; waPhone = obj.staffPhone; waName = obj.staffName;
+    doc = buildStaffPDF(obj); filename = `staff-allowance-${cleanFilePart(obj.staffName)}.pdf`; waPhone = obj.staffPhone; waName = obj.staffName;
   }
-  filename = filename.replace(/[^a-z0-9.\- ]/gi,'').replace(/\s+/g,'-').toLowerCase();
 
   if(mode==='download'){ doc.save(filename); showToast('PDF downloaded.'); }
   else if(mode==='print'){ doc.autoPrint(); window.open(doc.output('bloburl'), '_blank'); }
@@ -3193,7 +3259,7 @@ function exportAccountsPDF(year){
 
 function exportBookingsExcel(){
   const rows = State.bookings.map(b => ({
-    'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
+    'Booking ID': getBookingId(b), 'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
     'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
     'Pakej': b.pakej, 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Waktu Event': b.waktuEvent,
     'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
@@ -3209,8 +3275,8 @@ function exportBookingsListPDF(){
   docHeader(doc,'Booking List','ALL-'+todayISO().replace(/-/g,''));
   doc.autoTable({ startY:30, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:8},
     styles:{fontSize:8,cellPadding:2.5}, margin:{left:12,right:12},
-    head:[['Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
-    body: State.bookings.map(b=>[displayDate(b.tarikhEvent), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
+    head:[['Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
+    body: State.bookings.map(b=>[getBookingId(b), displayDate(b.tarikhEvent), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
       rmVal(b.jumlahKeseluruhan), rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)), b.paymentStatus, b.bookingStatus]),
   });
   doc.save(`kerlip-bookings-${todayISO()}.pdf`);
