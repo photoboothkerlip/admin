@@ -982,29 +982,35 @@ function detectPackageHours(obj={}){
 function normaliseEventType(type=''){
   return String(type || '').trim().toUpperCase();
 }
-function getAutoPackageBenefits(eventType, packageHours){
-  const type = normaliseEventType(eventType);
-  const hours = num(packageHours);
+function getAutoPackageBenefits(obj={}){
+  const eventType = normaliseEventType(obj.jenisEvent || obj.eventType || '');
+  const packageType = String(obj.packageType || obj.pakej || '').toUpperCase();
+  const hours = detectPackageHours(obj);
   const benefits = [];
 
-  // All event types: 4 hours and above receive free premium keychain.
-  if(hours >= 4){
-    benefits.push({ key:'keychain100', label:'FREE 100 PCS KEYCHAIN' });
+  const isPurePhotobooth = packageType.includes('PHOTOBOOTH') && !packageType.includes('360') && !packageType.includes('COMBO');
+
+  // 360 Spinbooth and Combo packages do not receive auto free guest book or keychain.
+  if(!isPurePhotobooth || hours < 4){
+    return benefits;
   }
 
-  // Wedding only: 4 hours and above receive free guest book.
-  // Wedding 3 hours does not receive guest book or keychain.
-  if(type === 'WEDDING' && hours >= 4){
+  // Photobooth only: 4 hours and above receive free 100pcs keychain.
+  benefits.push({ key:'keychain100', label:'FREE 100 PCS KEYCHAIN' });
+
+  // Wedding photobooth only: 4 hours and above receive free guest book.
+  // Company photobooth booking does not receive free guest book.
+  if(eventType === 'WEDDING'){
     benefits.push({ key:'guestbook', label:'FREE PREMIUM GUEST BOOK' });
   }
 
   return benefits;
 }
 function packageBenefitLabels(obj={}){
-  return getAutoPackageBenefits(obj.jenisEvent, detectPackageHours(obj)).map(x=>x.label);
+  return getAutoPackageBenefits(obj).map(x=>x.label);
 }
 function hasBenefit(obj={}, key){
-  return getAutoPackageBenefits(obj.jenisEvent, detectPackageHours(obj)).some(x=>x.key===key);
+  return getAutoPackageBenefits(obj).some(x=>x.key===key);
 }
 function quotationFeatureList(q={}){
   const type = String(q.packageType || q.pakej || 'PHOTOBOOTH').toUpperCase();
@@ -2719,7 +2725,7 @@ function renderFormModal(){
 
   if(type==='booking' || type==='quotation'){
     const benefitText = packageBenefitLabels(data);
-    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map(esc).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Company/Personal 4 hours and above = free 100pcs keychain. Wedding 4 hours and above = free guest book + 100pcs keychain.</div></div>`;
+    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map(esc).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: 360 Spinbooth / Combo = no auto free item. Photobooth 4 hours and above = free 100pcs keychain. Wedding photobooth 4 hours and above = free guest book + keychain. Company photobooth = keychain only.</div></div>`;
   }
 
   return `<div class="modal-bg" id="modal-bg">
