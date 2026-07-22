@@ -688,6 +688,24 @@ const parseTimeRange = (text) => {
 const yyyymmdd = (iso) => String(iso || todayISO()).slice(0,10).replace(/-/g,'');
 const fileDate = (iso) => String(iso || todayISO()).slice(0,10);
 const pad4 = (n) => String(Math.max(1, Number(n) || 1)).padStart(4,'0');
+const randomLetterCode = () => Array.from({length:4},()=>String.fromCharCode(65+Math.floor(Math.random()*26))).join('');
+
+function uniqueQuotationLetterCode(dateIso=todayISO()){
+  const prefix=`QT-KB-${yyyymmdd(dateIso)}-`;
+  const used=new Set((State.quotations||[]).map(q=>String(getQuotationNo(q)||'').toUpperCase()));
+  let code=randomLetterCode();
+  while(used.has(prefix+code)) code=randomLetterCode();
+  return code;
+}
+
+function letterCodeFromSeed(seed=''){
+  const text=String(seed||uid());
+  let hash=2166136261;
+  for(let i=0;i<text.length;i++) hash=Math.imul(hash^text.charCodeAt(i),16777619)>>>0;
+  let code='';
+  for(let i=0;i<4;i++){code+=String.fromCharCode(65+(hash%26));hash=Math.floor(hash/26);}
+  return code;
+}
 
 function dailyRunningNumber(list, dateIso){
   const key = yyyymmdd(dateIso);
@@ -707,8 +725,13 @@ function getBookingId(obj={}){
 }
 
 function getQuotationNo(obj={}){
-  if(obj.quotationNumber && /^QT-KB-/i.test(obj.quotationNumber)) return obj.quotationNumber;
-  return `QT-${getBookingId(obj)}`;
+  if(obj.quotationNumber && /^QT-KB-/i.test(obj.quotationNumber)){
+    if(!/-\d{4}$/i.test(obj.quotationNumber)) return obj.quotationNumber;
+    const code=letterCodeFromSeed(obj.id||obj.createdAt||`${obj.namaClient}-${obj.tarikhEvent}`);
+    return obj.quotationNumber.replace(/-\d{4}$/i,`-${code}`);
+  }
+  const dateIso=obj.quotationDate||obj.tarikhEvent||todayISO();
+  return `QT-KB-${yyyymmdd(dateIso)}-${letterCodeFromSeed(obj.id||obj.createdAt)}`;
 }
 
 function getInvoiceNo(obj={}){
@@ -910,7 +933,8 @@ function emptyBooking(){
 }
 function emptyQuotation(){
   const quotationDate = todayISO();
-  const bookingId = createBookingId(quotationDate);
+  const code = uniqueQuotationLetterCode(quotationDate);
+  const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
     lokasiEvent:'', jenisEvent:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
@@ -1180,7 +1204,7 @@ function footerNote(doc){
   doc.text('Kerlip Photobooth · WhatsApp / Phone on file',105,h-10,{align:'center'});
 }
 
-function buildQuotationPDF(q){
+function buildQuotationPDFLegacy(q){
   const doc = new window.jspdf.jsPDF();
 
   // Quotation layout matched to approved reference PDF:
@@ -1372,6 +1396,192 @@ function buildQuotationPDF(q){
   doc.setFontSize(7.8);
   doc.text('This quotation is computer generated and does not require a signature.',14,288);
 
+  return doc;
+}
+
+function buildQuotationPDFEditorialLegacy(q){
+  const doc = new window.jspdf.jsPDF();
+  const ink=[30,27,24], stone=[111,103,94];
+  const gold=[184,148,82], goldSoft=[239,229,207], white=[255,255,255];
+  const company=companyProfile ? companyProfile() : defaultCompanyProfile();
+  const total=quotationGrandTotal(q), quoteNo=getQuotationNo(q);
+  const quoteDate=q.quotationDate||todayISO(), status=(q.status||'SENT').toUpperCase();
+  const safe=(v,fallback='—')=>(v===undefined||v===null||String(v).trim()==='')?fallback:String(v);
+  const upper=(v,fallback='—')=>safe(v,fallback).toUpperCase();
+
+  function label(txt,x,y){
+    doc.setTextColor(...gold); doc.setFont('helvetica','bold'); doc.setFontSize(6.8);
+    doc.text(txt.toUpperCase(),x,y);
+  }
+  function value(txt,x,y,w=70,opts={}){
+    doc.setTextColor(...(opts.color||ink)); doc.setFont('helvetica',opts.bold?'bold':'normal');
+    doc.setFontSize(opts.size||9); doc.text(doc.splitTextToSize(safe(txt),w),x,y);
+  }
+  function rule(y){doc.setDrawColor(220,214,204);doc.setLineWidth(.25);doc.line(14,y,196,y);}
+  function sectionTitle(txt,y){
+    doc.setFillColor(...ink);doc.roundedRect(14,y,182,10,2,2,'F');
+    doc.setTextColor(...white);doc.setFont('helvetica','bold');doc.setFontSize(8);
+    doc.text(txt.toUpperCase(),19,y+6.5);return y+10;
+  }
+
+  // Premium editorial header.
+  doc.setFillColor(...ink);doc.rect(0,0,210,58,'F');
+  try{doc.addImage(KERLIP_LOGO,'PNG',14,10,34,34);}catch(e){}
+  doc.setTextColor(...white);doc.setFont('helvetica','bold');doc.setFontSize(22);
+  doc.text('QUOTATION',196,20,{align:'right'});
+  doc.setDrawColor(...gold);doc.setLineWidth(1);doc.line(135,26,196,26);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(quoteNo,196,35,{align:'right'});
+  doc.setTextColor(201,194,185);doc.setFontSize(7);
+  doc.text(`${displayDate(quoteDate)}  •  ${status}`,196,42,{align:'right'});
+
+  let y=69;
+  label('Prepared by',14,y);
+  value(upper(company.businessName||'KERLIP STUDIO ENTERPRISE'),14,y+7,82,{bold:true,size:10});
+  value(`Registration No. ${safe(company.registrationNo,'003615278-U')}`,14,y+13,82,{size:7.5,color:stone});
+  const address=[company.address1,company.address2,[company.postcode,company.city].filter(Boolean).join(' '),company.state].filter(Boolean).join(', ');
+  value(upper(address),14,y+19,82,{size:7.3,color:stone});
+
+  label('Prepared for',112,y);
+  value(upper(q.namaClient),112,y+7,84,{bold:true,size:10});
+  value(upper(q.buyerCompany||q.namaClient),112,y+13,84,{size:7.5,color:stone});
+  value(safe(q.noHpClient),112,y+19,84,{size:7.5,color:stone});
+  value(safe(q.buyerEmail),112,y+25,84,{size:7.5,color:stone});
+  rule(105);
+
+  y=sectionTitle('Event brief',113);
+  const eventFields=[['Event',upper(q.jenisEvent)],['Date',displayDate(q.tarikhEvent)],['Time',upper(q.waktuEvent,'TBC')],['Venue',upper(q.lokasiEvent)]];
+  eventFields.forEach(([k,v],i)=>{
+    const x=i%2===0?18:109, yy=y+11+Math.floor(i/2)*18;
+    label(k,x,yy);value(v,x,yy+6,78,{bold:i===0,size:8.5});
+  });
+
+  y=sectionTitle('Your package',166);
+  let rawFeatures=[];try{rawFeatures=quotationFeatureList(q)||[];}catch(e){}
+  let items=rawFeatures.map(x=>String(x).replace(/LEATHER KEYCHAIN/gi,'KEYCHAIN').toUpperCase()).filter(x=>!/LEATHER/i.test(x));
+  if(!items.length)items=['UNLIMITED INSTANT PRINTING','CUSTOM ARTWORK DESIGN','PROFESSIONAL LIGHTING','FREE 100 PCS KEYCHAIN','GUEST BOOK','DIGITAL SOFT COPY','SETUP & DISMANTLE'];
+  items.slice(0,10).forEach((item,i)=>{
+    const x=i%2?109:18, yy=y+10+(Math.floor(i/2)*8);
+    doc.setFillColor(...gold);doc.circle(x,yy-1.2,1.1,'F');value(item,x+5,yy,76,{size:7.7});
+  });
+
+  y=220;
+  doc.setFillColor(...goldSoft);doc.roundedRect(14,y,182,27,3,3,'F');
+  label('Total investment',21,y+9);
+  doc.setTextColor(...ink);doc.setFont('helvetica','bold');doc.setFontSize(20);
+  doc.text(rmVal(total),189,y+18,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...stone);
+  doc.text('All amounts are stated in Malaysian Ringgit.',21,y+18);
+
+  y=sectionTitle('Payment & confirmation',251);
+  label('Bank details',18,y+10);
+  value(upper(company.bankName||'CIMB BANK BERHAD'),18,y+16,72,{bold:true,size:8});
+  value(upper(company.accountName||company.businessName||'KERLIP STUDIO ENTERPRISE'),18,y+22,72,{size:7});
+  value(safe(company.accountNo,'8605915158'),18,y+28,72,{bold:true,size:8});
+  label('Terms',109,y+10);
+  const terms=['Deposit required to confirm booking.','Full payment is due before the event.','Artwork confirmation is required 3 days before the event.'];
+  terms.forEach((term,i)=>{doc.setFillColor(...gold);doc.circle(110,y+16+(i*6),.8,'F');value(term,114,y+17+(i*6),78,{size:6.8});});
+
+  doc.setFillColor(...ink);doc.rect(0,291,210,6,'F');
+  doc.setTextColor(210,204,196);doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+  doc.text('Thank you for choosing Kerlip Photobooth.',14,295);
+  doc.text('Computer generated • No signature required',196,295,{align:'right'});
+  return doc;
+}
+
+function buildQuotationPDF(q){
+  const doc=new window.jspdf.jsPDF('p','mm','a4');
+  const company=companyProfile();
+  const black=[0,0,0], text=[0,0,0], gold=[176,138,62], line=[185,185,185], soft=[250,250,250], white=[255,255,255];
+  const left=14,right=196,usableW=182;
+  const quoteNo=getQuotationNo(q), quoteDate=displayDate(q.quotationDate||todayISO());
+  const packagePrice=num(q.pakejPrice), addOnPrice=num(q.addOnPrice), transport=num(q.transportCharges);
+  const discount=num(q.discount), sst=quotationTax(q), total=quotationGrandTotal(q);
+  const split=(v,w)=>doc.splitTextToSize(String(v||'—'),w);
+  const short=(v,max=70)=>{const s=String(v||'—').replace(/\s+/g,' ').trim();return s.length>max?s.slice(0,max-1)+'…':s;};
+  const meta=(label,value,y)=>{
+    doc.setTextColor(...text);doc.setFont('helvetica','bold');doc.setFontSize(8.1);doc.text(label,139,y);
+    doc.setFont('helvetica','normal');doc.text(String(value||'—'),right,y,{align:'right'});
+  };
+  const section=(title,x,y,w)=>{
+    doc.setTextColor(...black);doc.setFont('helvetica','bold');doc.setFontSize(8.9);doc.text(title.toUpperCase(),x,y);
+    doc.setDrawColor(...gold);doc.setLineWidth(.45);doc.line(x,y+2.8,x+w,y+2.8);
+  };
+  const info=(label,value,x,y,w=70)=>{
+    doc.setTextColor(...text);doc.setFont('helvetica','bold');doc.setFontSize(6.9);doc.text(label.toUpperCase(),x,y);
+    doc.setFontSize(8);const lines=split(value,w).slice(0,2);doc.text(lines,x,y+4);
+    return y+9.7+(lines.length>1?3:0);
+  };
+
+  // Header follows the approved invoice structure.
+  doc.setTextColor(...black);doc.setFont('helvetica','bold');doc.setFontSize(17.5);
+  doc.text(company.businessName||'KERLIP STUDIO ENTERPRISE',left,16);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.1);
+  if(company.registrationNo)doc.text('('+company.registrationNo+')',left,22);
+  let cy=28;
+  const addressLines=split(companyAddress(company)||'36, Jalan Alam Suria 16/72, Seksyen 16, 42300 Puncak Alam, Selangor, Malaysia',92).slice(0,3);
+  doc.text(addressLines,left,cy);cy+=addressLines.length*3.7+1.8;
+  doc.text('Email: '+(company.email||'photoboothkerlip@gmail.com')+'   Phone: '+(company.phone||'—'),left,cy);cy+=3.8;
+  doc.text('Business Registration: '+(company.registrationNo||'003615278-U')+'   TIN: '+(company.tin||'—'),left,cy);
+  doc.setFont('helvetica','bold');doc.setFontSize(27);doc.text('QUOTATION',right,16,{align:'right'});
+  meta('Quotation No',quoteNo,29);meta('Quotation Date',quoteDate,36);meta('Valid Until',displayDate(q.validUntil||q.tarikhEvent),43);meta('Status',(q.status||'DRAFT').toUpperCase(),50);
+  doc.setDrawColor(...line);doc.setLineWidth(.35);doc.line(left,58,right,58);
+
+  // Client and event cards.
+  const boxY=63,boxH=56,colW=87,rightBoxX=110;
+  doc.setFillColor(...soft);doc.roundedRect(left,boxY,colW,boxH,2.8,2.8,'F');doc.roundedRect(rightBoxX,boxY,colW,boxH,2.8,2.8,'F');
+  doc.setDrawColor(...line);doc.setLineWidth(.25);doc.roundedRect(left,boxY,colW,boxH,2.8,2.8,'S');doc.roundedRect(rightBoxX,boxY,colW,boxH,2.8,2.8,'S');
+  section('Quote To',left+4,boxY+7,colW-8);section('Event Details',rightBoxX+4,boxY+7,colW-8);
+  let ly=boxY+14.2;
+  ly=info('Name',q.namaClient,left+4,ly,colW-8);ly=info('Company',q.buyerCompany||q.namaClient,left+4,ly,colW-8);
+  ly=info('Phone',q.noHpClient,left+4,ly,colW-8);ly=info('Email',q.buyerEmail,left+4,ly,colW-8);ly=info('TIN',q.buyerTin,left+4,ly,colW-8);
+  let ry=boxY+14.2;
+  ry=info('Quotation No',quoteNo,rightBoxX+4,ry,colW-8);ry=info('Event',q.jenisEvent,rightBoxX+4,ry,colW-8);
+  ry=info('Date / Time',(displayDate(q.tarikhEvent)||'—')+' • '+(q.waktuEvent||'TBC'),rightBoxX+4,ry,colW-8);
+  ry=info('Venue',q.lokasiEvent,rightBoxX+4,ry,colW-8);ry=info('Package',q.pakej,rightBoxX+4,ry,colW-8);
+
+  // Services table.
+  let y=126;section('Services',left,y,usableW);y+=5.2;
+  const rows=[];let no=1;
+  rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),'1',rmVal(packagePrice),rmVal(packagePrice)]);
+  if(addOnPrice>0||String(q.addOn||'').trim())rows.push([String(no++),short(q.addOn||'Add-On',64),'1',addOnPrice>0?rmVal(addOnPrice):'Included',addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
+  if(transport>0)rows.push([String(no++),'Transportation','1',rmVal(transport),rmVal(transport)]);
+  quotationFeatureList(q).slice(0,6).forEach(label=>rows.push(['',short(label,64),'1','Included','RM0.00']));
+  doc.autoTable({
+    startY:y,margin:{left,right:14},theme:'grid',pageBreak:'avoid',rowPageBreak:'avoid',
+    head:[['No','Description','Qty','Unit Price','Amount']],body:rows,
+    headStyles:{fillColor:black,textColor:white,fontStyle:'bold',fontSize:8.3,halign:'center',cellPadding:1.9},
+    styles:{fontSize:8,fontStyle:'normal',cellPadding:1.7,lineColor:line,lineWidth:.25,textColor:text,overflow:'linebreak',minCellHeight:5.4},
+    alternateRowStyles:{fillColor:soft},
+    columnStyles:{0:{cellWidth:12,halign:'center'},1:{cellWidth:100,fontStyle:'bold'},2:{cellWidth:15,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:25,halign:'right',fontStyle:'bold'}}
+  });
+
+  // Quotation summary mirrors the invoice payment summary.
+  y=Math.max(doc.lastAutoTable.finalY+5,174);
+  doc.setFont('helvetica','bold');doc.setFontSize(8.8);doc.text('QUOTATION SUMMARY',right,y,{align:'right'});y+=4;
+  const summary=[['Package',rmVal(packagePrice)],['Add-On',rmVal(addOnPrice)],['Transportation',rmVal(transport)]];
+  if(discount>0)summary.push(['Discount','-'+rmVal(discount)]);
+  if(sst>0)summary.push([`SST (${num(q.sstPercent)}%)`,rmVal(sst)]);
+  summary.push(['TOTAL PRICE',rmVal(total)]);
+  doc.autoTable({
+    startY:y,margin:{left:112,right:14},theme:'plain',pageBreak:'avoid',rowPageBreak:'avoid',body:summary,
+    styles:{fontSize:8.2,fontStyle:'bold',cellPadding:{top:1.5,right:2,bottom:1.5,left:2},lineColor:line,lineWidth:.18,textColor:text},
+    columnStyles:{0:{cellWidth:45,fontStyle:'bold'},1:{cellWidth:39,halign:'right',fontStyle:'bold'}},
+    didParseCell(data){if(data.row.index===summary.length-1){data.cell.styles.fillColor=black;data.cell.styles.textColor=white;data.cell.styles.fontSize=9.1;data.cell.styles.cellPadding={top:2,right:2,bottom:2,left:2};}}
+  });
+
+  // Bottom payment and terms cards.
+  y=Math.max(doc.lastAutoTable.finalY+7,216);const bottomBoxH=43;
+  doc.setFillColor(...soft);doc.roundedRect(left,y,86,bottomBoxH,2.5,2.5,'F');doc.roundedRect(110,y,86,bottomBoxH,2.5,2.5,'F');
+  doc.setDrawColor(...line);doc.roundedRect(left,y,86,bottomBoxH,2.5,2.5,'S');doc.roundedRect(110,y,86,bottomBoxH,2.5,2.5,'S');
+  section('Payment Details',left+4,y+7,76);section('Terms & Conditions',114,y+7,76);
+  let py=y+16;doc.setFontSize(7.9);doc.setFont('helvetica','bold');doc.text(company.bankName||'CIMB BANK BERHAD',left+4,py);py+=6;
+  doc.setFont('helvetica','normal');doc.text('Account Name:',left+4,py);doc.setFont('helvetica','bold');doc.text(split(company.accountName||company.businessName||'KERLIP STUDIO ENTERPRISE',45).slice(0,2),left+31,py);py+=11;
+  doc.setFont('helvetica','normal');doc.text('Account No:',left+4,py);doc.setFont('helvetica','bold');doc.text(company.accountNo||'8605915158',left+31,py);py+=6;
+  doc.setFont('helvetica','normal');doc.text('Reference:',left+4,py);doc.setFont('helvetica','bold');doc.text(quoteNo,left+31,py);
+  const terms=['• Deposit required to confirm booking.','• Full payment before event.','• Artwork approval 3 days before event.','• Overtime is chargeable.','• Prices quoted in MYR.'];
+  doc.setFont('helvetica','normal');doc.setFontSize(7.7);doc.text(terms,114,y+16,{lineHeightFactor:1.15});
+  doc.setFont('helvetica','italic');doc.setFontSize(8);doc.text('This quotation is computer generated and does not require a signature.',105,283,{align:'center'});
+  while(doc.getNumberOfPages&&doc.getNumberOfPages()>1)doc.deletePage(doc.getNumberOfPages());
   return doc;
 }
 
