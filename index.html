@@ -937,7 +937,7 @@ function emptyQuotation(){
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
-    lokasiEvent:'', jenisEvent:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    lokasiEvent:'', jenisEvent:'', buyerCompany:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
@@ -1108,6 +1108,7 @@ const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
   ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Date','date'],
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
+  ['buyerCompany','Company Name','text'],
   ['packageType','Package Type','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['pakej','Package Name (Auto)','readonly'],['pakejPrice','Package Price (RM)','number'],
   ['backdrop','Backdrop Selected','text'],['addOn','Add-On Package','text'],
   ['addOnPrice','Add-On Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
@@ -1527,12 +1528,14 @@ function buildQuotationPDF(q){
   doc.setDrawColor(...line);doc.setLineWidth(.35);doc.line(left,58,right,58);
 
   // Client and event cards.
-  const boxY=63,boxH=56,colW=87,rightBoxX=110;
+  const isCompanyEvent=String(q.jenisEvent||'').trim().toUpperCase()==='COMPANY';
+  const boxY=63,boxH=isCompanyEvent?62:56,colW=87,rightBoxX=110;
   doc.setFillColor(...soft);doc.roundedRect(left,boxY,colW,boxH,2.8,2.8,'F');doc.roundedRect(rightBoxX,boxY,colW,boxH,2.8,2.8,'F');
   doc.setDrawColor(...line);doc.setLineWidth(.25);doc.roundedRect(left,boxY,colW,boxH,2.8,2.8,'S');doc.roundedRect(rightBoxX,boxY,colW,boxH,2.8,2.8,'S');
   section('Quote To',left+4,boxY+7,colW-8);section('Event Details',rightBoxX+4,boxY+7,colW-8);
   let ly=boxY+14.2;
-  ly=info('Name',q.namaClient,left+4,ly,colW-8);ly=info('Company',q.buyerCompany||q.namaClient,left+4,ly,colW-8);
+  ly=info('Name',q.namaClient,left+4,ly,colW-8);
+  if(isCompanyEvent)ly=info('Company Name',q.buyerCompany,left+4,ly,colW-8);
   ly=info('Phone',q.noHpClient,left+4,ly,colW-8);ly=info('Email',q.buyerEmail,left+4,ly,colW-8);ly=info('TIN',q.buyerTin,left+4,ly,colW-8);
   let ry=boxY+14.2;
   ry=info('Quotation No',quoteNo,rightBoxX+4,ry,colW-8);ry=info('Event',q.jenisEvent,rightBoxX+4,ry,colW-8);
@@ -1540,7 +1543,7 @@ function buildQuotationPDF(q){
   ry=info('Venue',q.lokasiEvent,rightBoxX+4,ry,colW-8);ry=info('Package',q.pakej,rightBoxX+4,ry,colW-8);
 
   // Services table.
-  let y=126;section('Services',left,y,usableW);y+=5.2;
+  let y=boxY+boxH+7;section('Services',left,y,usableW);y+=5.2;
   const rows=[];let no=1;
   rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),'1',rmVal(packagePrice),rmVal(packagePrice)]);
   if(addOnPrice>0||String(q.addOn||'').trim())rows.push([String(no++),short(q.addOn||'Add-On',64),'1',addOnPrice>0?rmVal(addOnPrice):'Included',addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
@@ -2955,7 +2958,7 @@ function renderFormModal(){
               ? `<div class="field"><span class="label">${label}</span><input class="input" type="text" id="ff-${key}" data-key="${key}" value="${esc(data[key] || buildPackageName(data.packageType,data.packageHours))}" readonly style="background:var(--surface);font-weight:700" /></div>`
             : t==='selectDynamic'
               ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}"><option value="">Select staff from Staff Information</option>${staffInfoOptions().map(o=>`<option value="${esc(o.name)}" data-staff-id="${esc(o.id)}" ${String(data[key]||'').toLowerCase()===String(o.name||'').toLowerCase()?'selected':''}>${esc(o.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px">This dropdown is linked to Staff Information. Phone, IC, Bank Name and Account Number will auto-fill.</div></div>`
-              : `<div class="field"><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" data-key="${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} ${type==='staff' && ['staffPhone','staffIC','staffBankName','staffBankNo'].includes(key)?'readonly title="Auto-filled from Staff Information" style="background:var(--surface);font-weight:700"':''} /></div>`
+              : `<div class="field" ${key==='buyerCompany'?`id="field-buyerCompany" style="display:${String(data.jenisEvent||'').toUpperCase()==='COMPANY'?'flex':'none'}"`:''}><span class="label">${label}</span><input class="input" type="${t}" id="ff-${key}" data-key="${key}" value="${esc(data[key])}" ${t==='number'?'step="0.01"':''} ${type==='staff' && ['staffPhone','staffIC','staffBankName','staffBankNo'].includes(key)?'readonly title="Auto-filled from Staff Information" style="background:var(--surface);font-weight:700"':''} /></div>`
           ).join('')}
           ${extra}
         </div>
@@ -3074,7 +3077,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
-      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
+      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
@@ -3117,6 +3120,17 @@ function attachGlobalEvents(){
     packageTypeSelect.onchange = refreshPackageName;
     packageHoursSelect.onchange = refreshPackageName;
     refreshPackageName();
+  }
+
+  const quotationEventType = $('ff-jenisEvent');
+  const quotationCompanyField = $('field-buyerCompany');
+  if(quotationEventType && quotationCompanyField && State.formModal && State.formModal.type === 'quotation'){
+    const refreshCompanyField = () => {
+      const isCompany = String(quotationEventType.value||'').trim().toUpperCase()==='COMPANY';
+      quotationCompanyField.style.display = isCompany ? 'flex' : 'none';
+    };
+    quotationEventType.addEventListener('change', refreshCompanyField);
+    refreshCompanyField();
   }
 
   const staffNameSelect = $('ff-staffName');
@@ -3275,6 +3289,9 @@ function submitForm(e){
     ensurePackageDefaults(out);
     out.status = $('ff-status').value;
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
+    if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
+      showFormWarn('Company Name is required for a Company event.'); return;
+    }
     delete out._isNew;
     const exists = State.quotations.some(x=>x.id===out.id);
     State.quotations = exists ? State.quotations.map(x=>x.id===out.id?out:x) : [...State.quotations, out];
