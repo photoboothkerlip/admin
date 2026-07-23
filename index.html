@@ -927,7 +927,7 @@ function emptyBooking(){
   const bookingDate = todayISO();
   const bookingId = createBookingId(bookingDate);
   return { id:uid(), bookingId, bookingDate, jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
-    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
+    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
@@ -937,7 +937,7 @@ function emptyQuotation(){
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
-    lokasiEvent:'', jenisEvent:'', buyerCompany:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    lokasiEvent:'', jenisEvent:'', buyerCompany:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
@@ -1001,7 +1001,7 @@ function detectPackageHours(obj={}){
   if(direct > 0) return direct;
   const text = `${obj.pakej||''} ${obj.package||''} ${obj.packageName||''}`.toLowerCase();
   const m = text.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours|jam)/i);
-  return m ? Number(m[1]) : 3;
+  return m ? Number(m[1]) : 2;
 }
 function normaliseEventType(type=''){
   return String(type || '').trim().toUpperCase();
@@ -1066,11 +1066,11 @@ const PAYMENT_METHODS = ['Bank Transfer','Cash','DuitNow','Card','E-Wallet','Oth
 const EVENT_TYPE_OPTIONS = ['WEDDING','COMPANY','PERSONAL'];
 const PACKAGE_TYPE_OPTIONS = ['PHOTOBOOTH','360 SPINBOOTH','COMBO'];
 const PACKAGE_DURATION_OPTIONS = {
-  'PHOTOBOOTH':['3','4','5','6','7','8'],
+  'PHOTOBOOTH':['2','3','4','5','6','7','8'],
   '360 SPINBOOTH':['2','3','4','5'],
-  'COMBO':['3','4','5','6','7','8']
+  'COMBO':['2','3','4','5','6','7','8']
 };
-const PACKAGE_HOURS_OPTIONS = ['3','4','5','6','7','8'];
+const PACKAGE_HOURS_OPTIONS = ['2','3','4','5','6','7','8'];
 function packageTypeOptions(){ return PACKAGE_TYPE_OPTIONS; }
 function packageHoursOptionsFor(type){
   const key = String(type || 'PHOTOBOOTH').trim().toUpperCase();
@@ -1079,8 +1079,8 @@ function packageHoursOptionsFor(type){
 function ensurePackageDefaults(obj={}){
   obj.packageType = String(obj.packageType || 'PHOTOBOOTH').trim().toUpperCase();
   const hours = packageHoursOptionsFor(obj.packageType);
-  obj.packageHours = String(obj.packageHours || detectPackageHours(obj) || hours[0] || '3');
-  if(!hours.includes(String(obj.packageHours))) obj.packageHours = hours[0] || '3';
+  obj.packageHours = String(obj.packageHours || detectPackageHours(obj) || hours[0] || '2');
+  if(!hours.includes(String(obj.packageHours))) obj.packageHours = hours[0] || '2';
   obj.pakej = buildPackageName(obj.packageType, obj.packageHours);
   return obj;
 }
