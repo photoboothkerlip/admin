@@ -685,6 +685,8 @@ const uid = () => 'KP-' + Date.now().toString(36).toUpperCase() + Math.random().
 const num = (v) => Number(v) || 0;
 const rm = (n) => { const v = num(n); return v === 0 ? 'N/A' : 'RM' + v.toLocaleString('en-MY',{minimumFractionDigits:0}); };
 const rmVal = (n) => 'RM' + num(n).toLocaleString('en-MY',{minimumFractionDigits:2});
+const bookingBalance = (b) => b?.paymentStatus === 'Paid' ? 0 : Math.max(0, num(b?.jumlahKeseluruhan) - num(b?.bayaranDeposit));
+const bookingPaidAmount = (b) => b?.paymentStatus === 'Paid' ? num(b?.jumlahKeseluruhan) : num(b?.bayaranDeposit);
 const todayISO = () => new Date().toISOString().slice(0,10);
 const monthKeyOf = (iso) => iso ? iso.slice(0,7) : '';
 const displayDate = (iso) => { if(!iso) return '—'; const [y,m,d]=iso.split('-'); return d && `${d}.${m}.${y}` || iso; };
@@ -1628,7 +1630,7 @@ function buildBookingSummaryPDF(b){
   });
   y = doc.lastAutoTable.finalY + 8;
   y = docSectionTitle(doc,'Payment Summary',y);
-  const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
+  const bal = bookingBalance(b);
   doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
     body:[['Total Amount', rmVal(b.jumlahKeseluruhan)],['Deposit Paid', rmVal(b.bayaranDeposit)],
       ['Balance Due', rmVal(bal)]],
@@ -2044,7 +2046,8 @@ function buildMonthlyReportPDF(monthKey, bookings){
   let y = 34;
   const list = bookings.filter(b=>monthKeyOf(b.tarikhEvent)===monthKey && b.bookingStatus!=='Cancelled');
   const total = list.reduce((s,b)=>s+num(b.jumlahKeseluruhan),0);
-  const collected = list.reduce((s,b)=>s+num(b.bayaranDeposit),0);
+  const collected = list.reduce((s,b)=>s+bookingPaidAmount(b),0);
+  const outstanding = list.reduce((s,b)=>s+bookingBalance(b),0);
   const [yr,mo] = monthKey.split('-');
   const label = new Date(yr,mo-1,1).toLocaleDateString('en-MY',{month:'long',year:'numeric'});
   doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text('Reporting Month: '+label,16,y); doc.setFont('helvetica','normal'); y+=8;
@@ -2053,13 +2056,13 @@ function buildMonthlyReportPDF(monthKey, bookings){
     styles:{fontSize:8.5,cellPadding:2.5}, margin:{left:16,right:16},
     head:[['Date','Client','Package','Total (RM)','Deposit (RM)','Balance (RM)','Status']],
     body: list.map(b=>[displayDate(b.tarikhEvent), b.namaClient, b.pakej||'—', num(b.jumlahKeseluruhan).toFixed(2),
-      num(b.bayaranDeposit).toFixed(2), (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)).toFixed(2), b.bookingStatus]),
+      bookingPaidAmount(b).toFixed(2), bookingBalance(b).toFixed(2), b.bookingStatus]),
   });
   y = doc.lastAutoTable.finalY + 8;
   y = docSectionTitle(doc,'Summary',y);
   doc.autoTable({ startY:y, theme:'plain', styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:16,right:16},
     body:[['Total Bookings', list.length],['Total Sales Value', rmVal(total)],['Total Collected (Deposits)', rmVal(collected)],
-      ['Outstanding Balance', rmVal(total-collected)]],
+      ['Outstanding Balance', rmVal(outstanding)]],
     columnStyles:{0:{fontStyle:'bold',textColor:[138,129,114]},1:{halign:'right',fontStyle:'bold'}}});
   y = doc.lastAutoTable.finalY + 12;
   footerNote(doc);
@@ -2073,7 +2076,7 @@ function buildGCalUrl(b, start, end){
     `Client: ${b.namaClient}`, `Phone: ${b.noHpClient}`, `Location: ${b.lokasiEvent}`,
     `Package: ${b.pakej}`, `Backdrop: ${b.backdrop||'N/A'}`, `Add-on: ${b.pakejTambahan||'N/A'}`,
     `Total: ${rm(b.jumlahKeseluruhan)}`, `Deposit Paid: ${rm(b.bayaranDeposit)}`,
-    `Balance: ${rm(b.jumlahKeseluruhan-b.bayaranDeposit)}`, `Payment Status: ${b.paymentStatus}`,
+    `Balance: ${rm(bookingBalance(b))}`, `Payment Status: ${b.paymentStatus}`,
     `Contact Person (event day): ${b.namaCP||'—'}`, `Contact Person Phone: ${b.noHpCP||'—'}`,
   ].join('\n');
   const dc = b.tarikhEvent.replace(/-/g,'');
@@ -2150,7 +2153,7 @@ function renderSidebar(){
     ['quotations', I.quote, 'Quotations'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
     ['accounts', I.chart, 'Account Statement'], ['settings', I.doc, 'Company e-Invoice'],
   ];
-  const reminders = State.bookings.filter(b=>b.paymentStatus!=='Paid' && b.bookingStatus!=='Cancelled' && (num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))>0);
+  const reminders = State.bookings.filter(b=>b.bookingStatus!=='Cancelled' && bookingBalance(b)>0);
   return `
     <div class="sidebar-brand">
       ${I.aperture(42)}
@@ -2161,7 +2164,7 @@ function renderSidebar(){
     </nav>
     ${reminders.length ? `<div class="card" style="margin-top:auto;padding:14px;background:var(--dangerSoft);border:none">
       <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:var(--danger);margin-bottom:8px">${I.alert} Unpaid Balance</div>
-      ${reminders.slice(0,5).map(b=>`<div style="font-size:11.5px;color:var(--danger);margin-bottom:4px">${esc(b.namaClient)} — ${rm(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit))} due</div>`).join('')}
+      ${reminders.slice(0,5).map(b=>`<div style="font-size:11.5px;color:var(--danger);margin-bottom:4px">${esc(b.namaClient)} — ${rm(bookingBalance(b))} due</div>`).join('')}
     </div>` : ''}
   `;
 }
@@ -2492,7 +2495,7 @@ function renderBookings(){
         <thead><tr>${['No.','Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map((b,idx)=>{
-            const bal = num(b.jumlahKeseluruhan)-num(b.bayaranDeposit);
+            const bal = bookingBalance(b);
             return `<tr>
               <td style="font-weight:800;color:var(--muted)">${idx+1}</td>
               <td style="font-weight:750" title="${esc(getBookingId(b))}">${getBookingId(b)}</td>
@@ -2528,9 +2531,9 @@ function renderInvoices(){
     .sort((a,b)=>(b.tarikhEvent||'').localeCompare(a.tarikhEvent||''));
 
   const totalInvoiceValue = rows.reduce((sum,b)=>sum+num(b.jumlahKeseluruhan),0);
-  const totalPaidValue = rows.reduce((sum,b)=>sum+(b.paymentStatus==='Paid'?num(b.jumlahKeseluruhan):num(b.bayaranDeposit)),0);
+  const totalPaidValue = rows.reduce((sum,b)=>sum+bookingPaidAmount(b),0);
   const totalOutstanding = rows.reduce((sum,b)=>{
-    const paid = b.paymentStatus==='Paid' ? num(b.jumlahKeseluruhan) : num(b.bayaranDeposit);
+    const paid = bookingPaidAmount(b);
     return sum + Math.max(0, num(b.jumlahKeseluruhan)-paid);
   },0);
 
@@ -2555,7 +2558,7 @@ function renderInvoices(){
         <tbody>
           ${rows.map(b=>{
             const invoiceNo = getInvoiceNo(b);
-            const paidAmount = b.paymentStatus==='Paid' ? num(b.jumlahKeseluruhan) : num(b.bayaranDeposit);
+            const paidAmount = bookingPaidAmount(b);
             const outstanding = Math.max(0, num(b.jumlahKeseluruhan)-paidAmount);
             return `<tr>
               <td style="font-weight:700">${invoiceNo}</td>
@@ -2938,7 +2941,7 @@ function renderFormModal(){
 
   let extra = '';
   if(type==='booking'){
-    const bal = num(data.jumlahKeseluruhan)-num(data.bayaranDeposit);
+    const bal = bookingBalance(data);
     extra = `
       <div class="field"><span class="label">Balance (auto)</span><div class="input" style="background:var(--surface);font-weight:700">${rm(bal)}</div></div>
       <div class="field"><span class="label">Payment Status</span><select class="input" id="ff-paymentStatus">${['Unpaid','Deposit Paid','Paid'].map(s=>`<option ${data.paymentStatus===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -3290,6 +3293,7 @@ function submitForm(e){
   if(type==='booking'){
     ensurePackageDefaults(out);
     out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
+    if(out.paymentStatus === 'Paid') out.bayaranDeposit = num(out.jumlahKeseluruhan);
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
     const clash = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent && out.waktuEvent.trim() && x.waktuEvent.trim().toLowerCase()===out.waktuEvent.trim().toLowerCase());
     if(clash){ showFormWarn('Double booking detected: another active booking already has this exact date and time.'); return; }
@@ -3458,8 +3462,8 @@ function exportAccountsExcel(year){
   const revRows = State.bookings.filter(b=>b.tarikhEvent && b.tarikhEvent.slice(0,4)===year).map(b=>({
     'Date': b.tarikhEvent, 'Client Name': b.namaClient, 'Event Type': b.jenisEvent, 'Location': b.lokasiEvent,
     'Package': b.pakej, 'Revenue Category': REVENUE_CATEGORIES.includes(b.revenueCategory)?b.revenueCategory:guessRevenueCategory(b),
-    'Total Invoice Amount': num(b.jumlahKeseluruhan), 'Amount Paid': b.paymentStatus==='Paid'?num(b.jumlahKeseluruhan):num(b.bayaranDeposit),
-    'Balance': num(b.jumlahKeseluruhan)-num(b.bayaranDeposit), 'Payment Status': b.paymentStatus, 'Booking Status': b.bookingStatus,
+    'Total Invoice Amount': num(b.jumlahKeseluruhan), 'Amount Paid': bookingPaidAmount(b),
+    'Balance': bookingBalance(b), 'Payment Status': b.paymentStatus, 'Booking Status': b.bookingStatus,
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(revRows), 'Event Revenue Tracker');
 
@@ -3517,7 +3521,7 @@ function exportBookingsExcel(){
     'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
     'Pakej': b.pakej, 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Waktu Event': b.waktuEvent,
     'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
-    'Balance (RM)': num(b.jumlahKeseluruhan)-num(b.bayaranDeposit), 'Payment Status': b.paymentStatus,
+    'Balance (RM)': bookingBalance(b), 'Payment Status': b.paymentStatus,
     'Booking Status': b.bookingStatus, 'GCal Synced': b.calendarSynced?'Yes':'No',
   }));
   const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new();
@@ -3531,7 +3535,7 @@ function exportBookingsListPDF(){
     styles:{fontSize:8,cellPadding:2.5}, margin:{left:12,right:12},
     head:[['Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
     body: State.bookings.map(b=>[getBookingId(b), displayDate(b.tarikhEvent), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
-      rmVal(b.jumlahKeseluruhan), rmVal(num(b.jumlahKeseluruhan)-num(b.bayaranDeposit)), b.paymentStatus, b.bookingStatus]),
+      rmVal(b.jumlahKeseluruhan), rmVal(bookingBalance(b)), b.paymentStatus, b.bookingStatus]),
   });
   doc.save(`kerlip-bookings-${todayISO()}.pdf`);
   showToast('PDF list downloaded.');
