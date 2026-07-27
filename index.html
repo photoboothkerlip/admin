@@ -191,6 +191,31 @@ td:last-child,th:last-child{padding-right:24px;}
 .calendar-day{aspect-ratio:1;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;transition:all .16s ease;}
 .calendar-day:hover{background:rgba(139,92,246,.12);box-shadow:0 0 22px rgba(139,92,246,.14);}
 
+/* One-screen desktop dashboard. */
+.dashboard-screen{display:flex;flex-direction:column;gap:12px;}
+.dashboard-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
+.dashboard-screen .stat{min-height:86px;padding:12px 14px;gap:6px;}
+.dashboard-screen .stat .val{font-size:22px;}
+.dashboard-screen .iconwrap{width:32px;height:32px;border-radius:12px;}
+.dashboard-main-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:12px;min-height:0;}
+.dashboard-screen .upcoming-panel,.dashboard-screen .calendar-card{padding:14px;}
+.dashboard-screen .upcoming-head{margin-bottom:10px;font-size:14px;}
+.dashboard-screen .upcoming-list{gap:8px;}
+.dashboard-screen .upcoming-card{padding:10px 12px;gap:10px;border-radius:16px;}
+.dashboard-screen .event-left{gap:10px;}
+.dashboard-screen .event-no{width:26px;height:26px;border-radius:9px;font-size:11px;}
+.dashboard-screen .event-icon{width:38px;height:38px;border-radius:13px;}
+.dashboard-screen .event-icon svg{width:20px;height:20px;}
+.dashboard-screen .event-title{font-size:13px;}
+.dashboard-screen .event-meta{margin-top:3px;gap:4px;font-size:10px;}
+.dashboard-screen .event-meta svg{width:12px;height:12px;}
+.dashboard-screen .event-status{gap:4px;padding:6px 8px;font-size:9px;}
+.dashboard-screen .event-status svg{width:12px;height:12px;}
+@media(max-width:980px){
+  .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .dashboard-main-grid{grid-template-columns:1fr;}
+}
+
 /* Utility colour patches */
 [style*="background:var(--surface)"]{background:rgba(15,23,42,.72)!important;}
 [style*="background:var(--surfaceAlt)"]{background:rgba(15,23,42,.68)!important;}
@@ -2232,26 +2257,23 @@ function renderDashboard(){
   const staffPaid = staffThisMonth.filter(x=>x.paymentStatus==='Paid').reduce((s,x)=>s+staffTotal(x),0);
   const staffPending = staffTotalMonth - staffPaid;
   const netProfit = monthlyRevenue - staffTotalMonth;
-  const upcoming = b.filter(x=>x.tarikhEvent>=todayISO() && x.bookingStatus!=='Cancelled').sort((a,c)=>a.tarikhEvent.localeCompare(c.tarikhEvent)).slice(0,6);
+  const upcoming = b.filter(x=>x.tarikhEvent>=todayISO() && x.bookingStatus!=='Cancelled').sort((a,c)=>a.tarikhEvent.localeCompare(c.tarikhEvent)).slice(0,4);
 
   return `
-  <div style="display:flex;flex-direction:column;gap:18px">
-    <div class="kpi-grid">
+  <div class="dashboard-screen">
+    <div class="dashboard-kpis">
       ${statCard(I.list,'Total Bookings',total)}
       ${statCard(`<span style="color:var(--success)">✓</span>`,'Confirmed',confirmed)}
       ${statCard(`<span style="color:var(--goldDeep)">⏱</span>`,'Pending',pending)}
       ${statCard(`<span>${rm(0)==='N/A'?'':''}RM</span>`,'Paid',paid)}
       ${statCard(I.alert,'Unpaid',unpaid,'','var(--dangerSoft)')}
       ${statCard('RM','Monthly Revenue',rm(monthlyRevenue),'Active bookings this month')}
-    </div>
-    <div class="serif" style="font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--goldDeep);text-transform:uppercase;margin-top:4px">Crew &amp; Profit</div>
-    <div class="kpi-grid">
       ${statCard(I.users,'Staff Allowance (Month)',rm(staffTotalMonth))}
       ${statCard('✓','Paid Allowance',rm(staffPaid))}
       ${statCard(I.alert,'Pending Allowance',rm(staffPending),'','var(--dangerSoft)')}
       ${statCard('RM','Net Profit',rm(netProfit),'Revenue minus staff allowance')}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="dgrid">
+    <div class="dashboard-main-grid dgrid">
       <div class="card upcoming-panel">
         <div class="upcoming-head">${I.users} Upcoming Events</div>
         <div class="upcoming-list">
