@@ -1200,12 +1200,14 @@ function emptyExpense(){
   return { id:uid(), date:todayISO(), category:OPEX_CATEGORIES[0], type:'OPEX', description:'', supplier:'',
     paymentMethod:PAYMENT_METHODS[0], amount:0, receiptAvailable:'Yes', notes:'', createdAt:new Date().toISOString() };
 }
+function canonicalCategoryFromList(value, categories){
+  const compact = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return categories.find(category => category.toLowerCase().replace(/[^a-z0-9]/g, '') === compact) || null;
+}
 function canonicalExpenseCategory(value){
-  const raw = String(value || '').trim();
-  const exact = OPEX_CATEGORIES.find(category => category.toLowerCase() === raw.toLowerCase());
-  if(exact) return exact;
-
-  const compact = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const compact = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const official = canonicalCategoryFromList(value, OPEX_CATEGORIES);
+  if(official) return official;
   const aliases = {
     guestbook: 'Guest book cost',
     guestbookcost: 'Guest book cost',
@@ -1215,6 +1217,9 @@ function canonicalExpenseCategory(value){
     miscalenousexpenses: 'Miscellaneous expenses',
   };
   return aliases[compact] || 'Miscellaneous expenses';
+}
+function canonicalRevenueCategory(value, booking={}){
+  return canonicalCategoryFromList(value, REVENUE_CATEGORIES) || guessRevenueCategory(booking);
 }
 function guessRevenueCategory(b){
   const s = ((b.jenisEvent||'')+' '+(b.pakej||'')).toLowerCase();
@@ -2846,7 +2851,7 @@ function computeAccountStatement(year){
     if(b.bookingStatus==='Cancelled') return;
     if(!b.tarikhEvent || b.tarikhEvent.slice(0,4)!==year) return;
     const m = Number(b.tarikhEvent.slice(5,7))-1; if(m<0||m>11) return;
-    const cat = REVENUE_CATEGORIES.includes(b.revenueCategory) ? b.revenueCategory : guessRevenueCategory(b);
+    const cat = canonicalRevenueCategory(b.revenueCategory, b);
     revByCat[cat][m] += num(b.jumlahKeseluruhan);
   });
 
@@ -3342,6 +3347,8 @@ function renderPreserveScroll(){ $('main').innerHTML = renderMain(); attachGloba
 
 function openForm(type, data){
   if(type === 'booking' || type === 'quotation') data = ensurePackageDefaults({...data});
+  if(type === 'booking') data.revenueCategory = canonicalRevenueCategory(data.revenueCategory, data);
+  if(type === 'expense') data = {...data, category:canonicalExpenseCategory(data.category)};
   State.formModal = { type, data };
   render();
 }
@@ -3356,6 +3363,7 @@ function submitForm(e){
 
   if(type==='booking'){
     ensurePackageDefaults(out);
+    out.revenueCategory = canonicalRevenueCategory(out.revenueCategory, out);
     out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
     if(out.paymentStatus === 'Paid') out.bayaranDeposit = num(out.jumlahKeseluruhan);
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
@@ -3526,7 +3534,7 @@ function exportAccountsExcel(year){
 
   const revRows = State.bookings.filter(b=>b.tarikhEvent && b.tarikhEvent.slice(0,4)===year).map(b=>({
     'Date': b.tarikhEvent, 'Client Name': b.namaClient, 'Event Type': b.jenisEvent, 'Location': b.lokasiEvent,
-    'Package': b.pakej, 'Revenue Category': REVENUE_CATEGORIES.includes(b.revenueCategory)?b.revenueCategory:guessRevenueCategory(b),
+    'Package': b.pakej, 'Revenue Category': canonicalRevenueCategory(b.revenueCategory, b),
     'Total Invoice Amount': num(b.jumlahKeseluruhan), 'Amount Paid': bookingPaidAmount(b),
     'Balance': bookingBalance(b), 'Payment Status': b.paymentStatus, 'Booking Status': b.bookingStatus,
   }));
