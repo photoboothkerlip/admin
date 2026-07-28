@@ -674,6 +674,7 @@ input[id*="email" i]{
 /* ======================= FIREBASE SETUP ======================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDR1LP7WRDyOHtvej-Z1ogQOS9bRZVMZD4",
@@ -687,6 +688,7 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 const appDataRef = doc(db, "kerlipApp", "mainData");
 console.log("Firebase Connected");
 
@@ -880,7 +882,7 @@ const COMPANY_FIELDS = [
 
 /* ======================= STATE ======================= */
 const State = {
-  authed:false, view:'dashboard', loading:true,
+  authed:false, user:null, view:'dashboard', loading:true,
   bookings:[], quotations:[], staff:[], staffInfo:[], expenses:[], company: defaultCompanyProfile(),
   formModal:null,      // {type:'booking'|'quotation'|'staff'|'staffInfo'|'expense', data:{...}, isNew}
   docModal:null,       // {kind, obj}
@@ -2169,19 +2171,30 @@ function renderLogin(){
         </div>
       </div>
       <form id="login-form" style="display:flex;flex-direction:column;gap:14px">
-        <div class="field"><label class="label">Admin password</label><input class="input" id="login-pw" type="password" placeholder="Enter password" autofocus /></div>
+        <div class="field"><label class="label">Admin email</label><input class="input" id="login-email" type="email" autocomplete="username" placeholder="admin@example.com" autofocus /></div>
+        <div class="field"><label class="label">Password</label><input class="input" id="login-pw" type="password" autocomplete="current-password" placeholder="Enter password" /></div>
         <div id="login-err" style="font-size:12px;color:var(--danger)"></div>
         <button class="btn btn-dark" type="submit" style="justify-content:center;margin-top:2px;width:100%;padding:13px 18px">Sign in</button>
-        <div style="font-size:11px;text-align:center;color:var(--muted);margin-top:2px">Demo password: <span style="font-family:monospace">kerlip2026</span></div>
       </form>
     </div>
   </div>`;
 }
 function attachLoginEvents(){
-  $('login-form').onsubmit = (e) => {
+  $('login-form').onsubmit = async (e) => {
     e.preventDefault();
-    if($('login-pw').value === 'kerlip2026'){ State.authed = true; render(); }
-    else $('login-err').textContent = 'Incorrect password. Try kerlip2026 for this demo.';
+    const errorEl = $('login-err');
+    const submit = e.currentTarget.querySelector('button[type="submit"]');
+    errorEl.textContent = '';
+    submit.disabled = true;
+    submit.textContent = 'Signing in...';
+    try {
+      await signInWithEmailAndPassword(auth, $('login-email').value.trim(), $('login-pw').value);
+    } catch (error) {
+      console.error('Firebase sign-in failed:', error);
+      errorEl.textContent = 'Sign-in failed. Check your email and password.';
+      submit.disabled = false;
+      submit.textContent = 'Sign in';
+    }
   };
 }
 
@@ -3097,7 +3110,7 @@ function renderSyncModal(){
 
 /* ======================= EVENT WIRING ======================= */
 function attachGlobalEvents(){
-  $('btn-logout').onclick = () => { State.authed = false; render(); };
+  $('btn-logout').onclick = async () => { await signOut(auth); };
   const themeBtn = $('btn-theme'); if(themeBtn) themeBtn.onclick = toggleTheme;
   document.querySelectorAll('[data-nav]').forEach(el => el.onclick = () => { State.view = el.dataset.nav; render(); });
   document.querySelectorAll('[data-cal]').forEach(el => el.onclick = () => {
@@ -3618,7 +3631,13 @@ document.addEventListener('blur', function(e){
 
 /* ======================= BOOT ======================= */
 applyTheme();
-loadAll().then(render);
+onAuthStateChanged(auth, async (user) => {
+  State.user = user;
+  State.authed = Boolean(user);
+  State.loading = Boolean(user);
+  if(user) await loadAll();
+  render();
+});
 </script>
 </body>
 </html>
