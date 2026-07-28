@@ -179,6 +179,21 @@ td:last-child,th:last-child{padding-right:24px;}
 .fit-table:not(.accounts-fit-table) th:last-child,.fit-table:not(.accounts-fit-table) td:last-child{width:11%;}
 .accounts-fit-table th:first-child,.accounts-fit-table td:first-child{width:16%;}
 .accounts-fit-table th:last-child,.accounts-fit-table td:last-child{width:8%;}
+.staff-allowance-table th,.staff-allowance-table td{padding-left:5px;padding-right:5px;font-size:9.5px;}
+.staff-allowance-table th{font-size:8px;letter-spacing:.02em;}
+.staff-allowance-table th:nth-child(1),.staff-allowance-table td:nth-child(1){width:3%;padding-left:8px;text-align:center;}
+.staff-allowance-table th:nth-child(2),.staff-allowance-table td:nth-child(2){width:7%;}
+.staff-allowance-table th:nth-child(3),.staff-allowance-table td:nth-child(3){width:8%;}
+.staff-allowance-table th:nth-child(4),.staff-allowance-table td:nth-child(4){width:12%;}
+.staff-allowance-table th:nth-child(5),.staff-allowance-table td:nth-child(5){width:8%;}
+.staff-allowance-table th:nth-child(6),.staff-allowance-table td:nth-child(6){width:9%;}
+.staff-allowance-table th:nth-child(7),.staff-allowance-table td:nth-child(7){width:9%;}
+.staff-allowance-table th:nth-child(8),.staff-allowance-table td:nth-child(8){width:8%;}
+.staff-allowance-table th:nth-child(9),.staff-allowance-table td:nth-child(9){width:5%;text-align:center;}
+.staff-allowance-table th:nth-child(10),.staff-allowance-table td:nth-child(10){width:7%;}
+.staff-allowance-table th:nth-child(11),.staff-allowance-table td:nth-child(11){width:7%;}
+.staff-allowance-table th:nth-child(12),.staff-allowance-table td:nth-child(12){width:5%;text-align:center;}
+.staff-allowance-table th:nth-child(13),.staff-allowance-table td:nth-child(13){width:12%;padding-right:8px;}
 
 /* Modals / Drawer */
 .modal-bg{position:fixed;inset:0;background:rgba(2,6,23,.58);display:flex;align-items:stretch;justify-content:flex-end;padding:0;overflow-y:auto;z-index:60;animation:fadeIn .18s ease;backdrop-filter:blur(10px);}
@@ -2750,17 +2765,22 @@ function renderStaffInfo(){
 
 /* ======================= STAFF ALLOWANCE VIEW ======================= */
 function renderStaff(){
-  const rows = State.staff;
+  const rows = [...State.staff].sort((a,b) => {
+    const byEventDate = String(b.eventDate || '').localeCompare(String(a.eventDate || ''));
+    if(byEventDate) return byEventDate;
+    return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+  });
   return `
   <div style="display:flex;flex-direction:column;gap:14px">
     <div style="display:flex;justify-content:flex-end">
       <button class="btn btn-dark" id="btn-new-staff">${I.plus} New Staff Entry</button>
     </div>
     <div class="card table-card table-scroll">
-      <table class="fit-table">
-        <thead><tr>${['Event Date','Booking Ref','Staff','Phone','IC','Bank No.','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <table class="fit-table staff-allowance-table">
+        <thead><tr>${['No.','Event Date','Booking Ref','Staff','Phone','IC','Bank No.','Role','Hours','Total','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
-          ${rows.map(s=>`<tr>
+          ${rows.map((s,index)=>`<tr>
+              <td style="font-weight:800">${index+1}</td>
               <td>${displayDate(s.eventDate)}</td>
               <td>${esc(s.bookingRef)||'—'}</td>
               <td style="font-weight:600">${esc(s.staffName)}</td>
@@ -2777,7 +2797,7 @@ function renderStaff(){
                 <button class="btn-ghost" data-edit-s="${s.id}" title="Edit">${I.edit}</button>
                 <button class="btn-ghost" data-del-s="${s.id}" title="Delete">${I.trash}</button>
               </div></td>
-            </tr>`).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No staff allowance entries yet.</td></tr>`}
+            </tr>`).join('') || `<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--muted)">No staff allowance entries yet.</td></tr>`}
         </tbody>
       </table>
     </div>
