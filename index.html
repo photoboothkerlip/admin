@@ -998,7 +998,7 @@ function sampleBooking(){
 function emptyBooking(){
   const bookingDate = todayISO();
   const bookingId = createBookingId(bookingDate);
-  return { id:uid(), bookingId, bookingDate, jenisEvent:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
+  return { id:uid(), bookingId, bookingDate, jenisEvent:'', buyerCompany:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
     namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
@@ -1165,6 +1165,7 @@ function buildPackageName(type,hours){
 /* ======================= FIELD META (drives form rendering) ======================= */
 const BOOKING_FIELDS = [
   ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','select',EVENT_TYPE_OPTIONS],
+  ['buyerCompany','Company Name','text'],
   ['namaClient','Nama Client','text'],['noHpClient','No HP Client','text'],
   ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
@@ -3235,14 +3236,14 @@ function attachGlobalEvents(){
     refreshPackageName();
   }
 
-  const quotationEventType = $('ff-jenisEvent');
-  const quotationCompanyField = $('field-buyerCompany');
-  if(quotationEventType && quotationCompanyField && State.formModal && State.formModal.type === 'quotation'){
+  const companyEventType = $('ff-jenisEvent');
+  const companyNameField = $('field-buyerCompany');
+  if(companyEventType && companyNameField && State.formModal && ['booking','quotation'].includes(State.formModal.type)){
     const refreshCompanyField = () => {
-      const isCompany = String(quotationEventType.value||'').trim().toUpperCase()==='COMPANY';
-      quotationCompanyField.style.display = isCompany ? 'flex' : 'none';
+      const isCompany = String(companyEventType.value||'').trim().toUpperCase()==='COMPANY';
+      companyNameField.style.display = isCompany ? 'flex' : 'none';
     };
-    quotationEventType.addEventListener('change', refreshCompanyField);
+    companyEventType.addEventListener('change', refreshCompanyField);
     refreshCompanyField();
   }
 
@@ -3387,6 +3388,9 @@ function submitForm(e){
     out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
     if(out.paymentStatus === 'Paid') out.bayaranDeposit = num(out.jumlahKeseluruhan);
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
+    if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
+      showFormWarn('Company Name is required for a Company event.'); return;
+    }
     const clash = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent && out.waktuEvent.trim() && x.waktuEvent.trim().toLowerCase()===out.waktuEvent.trim().toLowerCase());
     if(clash){ showFormWarn('Double booking detected: another active booking already has this exact date and time.'); return; }
     const sameDate = State.bookings.some(x=> x.id!==out.id && x.bookingStatus!=='Cancelled' && x.tarikhEvent===out.tarikhEvent);
@@ -3610,7 +3614,7 @@ function exportAccountsPDF(year){
 
 function exportBookingsExcel(){
   const rows = State.bookings.map(b => ({
-    'Booking ID': getBookingId(b), 'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
+    'Booking ID': getBookingId(b), 'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Company Name': b.buyerCompany||'', 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
     'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
     'Pakej': b.pakej, 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Waktu Event': b.waktuEvent,
     'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
