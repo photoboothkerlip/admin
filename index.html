@@ -1009,7 +1009,7 @@ function emptyQuotation(){
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
-    lokasiEvent:'', jenisEvent:'', buyerCompany:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
@@ -1182,6 +1182,7 @@ const QUOTATION_FIELDS = [
   ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Date','date'],
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
+  ['buyerEmail','Buyer Email','email'],
   ['packageType','Package Type','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['pakej','Package Name (Auto)','readonly'],['pakejPrice','Package Price (RM)','number'],
   ['backdrop','Backdrop Selected','text'],['addOn','Add-On Package','text'],
   ['addOnPrice','Add-On Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
@@ -2168,7 +2169,7 @@ function render(){
   if(State.loading){ app.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--surface)">${I.aperture(48)}</div>`; return; }
   if(!State.authed){ app.innerHTML = renderLogin(); attachLoginEvents(); return; }
 
-  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',invoices:'Invoices',quotations:'Quotations',staffInfo:'Staff Information',staff:'Staff Allowance',accounts:'Account Statement'};
+  const pageNames = {dashboard:'Dashboard',bookings:'Bookings',invoices:'Invoices',quotations:'Quotations',email:'Company Event Email',staffInfo:'Staff Information',staff:'Staff Allowance',accounts:'Account Statement'};
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar" id="sidebar"></aside>
@@ -2238,7 +2239,7 @@ function attachLoginEvents(){
 function renderSidebar(){
   const nav = [
     ['dashboard', I.dash, 'Dashboard'], ['bookings', I.list, 'Bookings'],
-    ['quotations', I.quote, 'Quotations'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
+    ['quotations', I.quote, 'Quotations'], ['email', I.mail, 'Company Event Email'], ['staffInfo', I.users, 'Staff Information'], ['staff', I.users, 'Staff Allowance'],
     ['accounts', I.chart, 'Account Statement'], ['settings', I.doc, 'Company e-Invoice'],
   ];
   const reminders = State.bookings.filter(b=>b.bookingStatus!=='Cancelled' && bookingBalance(b)>0);
@@ -2262,6 +2263,7 @@ function renderMain(){
   if(State.view==='bookings') return renderBookings();
   if(State.view==='invoices') return renderInvoices();
   if(State.view==='quotations') return renderQuotations();
+  if(State.view==='email') return renderCompanyEventEmail();
   if(State.view==='staffInfo') return renderStaffInfo();
   if(State.view==='staff') return renderStaff();
   if(State.view==='accounts') return renderAccounts();
@@ -2721,6 +2723,54 @@ function renderQuotations(){
               </div></td>
             </tr>`;
           }).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ======================= COMPANY EVENT EMAIL VIEW ======================= */
+function isCompanyEvent(obj={}){
+  return normaliseEventType(obj.jenisEvent || obj.eventType || '') === 'COMPANY';
+}
+function companyEmailAction(kind,obj){
+  const hasEmail = String(obj.buyerEmail || '').trim();
+  const label = kind === 'quotation' ? 'Email Quotation' : 'Email Booking';
+  return `<button class="btn ${hasEmail?'btn-dark':''}" data-company-email="${kind}:${obj.id}" ${hasEmail?'':'disabled title="Add Buyer Email first"'}>${I.mail} ${label}</button>`;
+}
+function renderCompanyEventEmail(){
+  const quotations = State.quotations.filter(isCompanyEvent);
+  const bookings = State.bookings.filter(isCompanyEvent);
+  const missingEmail = [...quotations,...bookings].filter(x=>!String(x.buyerEmail||'').trim()).length;
+  const emailRows = (items,kind) => items.map(x=>`<tr>
+    <td><span class="badge badge-success">${kind==='quotation'?'Quotation':'Booking'}</span></td>
+    <td style="font-weight:700">${esc(x.buyerCompany || '—')}</td>
+    <td>${esc(x.namaClient || '—')}</td>
+    <td>${esc(x.buyerEmail || 'Email not added')}</td>
+    <td>${displayDate(x.tarikhEvent)}</td>
+    <td>${esc(x.pakej || '—')}</td>
+    <td>${kind==='quotation' ? rmVal(quotationGrandTotal(x)) : rmVal(x.jumlahKeseluruhan)}</td>
+    <td>${companyEmailAction(kind,x)}</td>
+  </tr>`).join('');
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.08em">Company Events</div>
+        <div class="serif" style="font-size:28px;font-weight:700;margin-top:3px">Quotation & Booking Email</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Create a ready-addressed email and automatically download the matching PDF for attachment.</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${statMini('Quotations',quotations.length)}
+        ${statMini('Bookings',bookings.length)}
+        ${statMini('Missing Email',missingEmail)}
+      </div>
+    </div>
+    <div class="card table-card table-scroll">
+      <table class="fit-table">
+        <thead><tr>${['Type','Company','Contact Person','Buyer Email','Event Date','Package','Total','Email'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${emailRows(quotations,'quotation')}${emailRows(bookings,'booking') || ''}
+          ${!quotations.length && !bookings.length ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">No company event quotations or bookings yet. Select COMPANY as the event type when creating one.</td></tr>` : ''}
         </tbody>
       </table>
     </div>
@@ -3191,12 +3241,19 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
-      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
+      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
     q.status='Accepted'; persist('quotations');
     openForm('booking', nb);
+  });
+
+  // Company event email tab
+  document.querySelectorAll('[data-company-email]').forEach(el => el.onclick = () => {
+    const [kind,id] = el.dataset.companyEmail.split(':');
+    const obj = kind === 'quotation' ? State.quotations.find(x=>x.id===id) : State.bookings.find(x=>x.id===id);
+    if(obj) sendCompanyEventEmail(kind,obj);
   });
 
 
@@ -3466,6 +3523,32 @@ function submitForm(e){
 function showFormWarn(msg){ const w=$('form-warn'), t=$('form-warn-text'); w.style.display='flex'; t.textContent=msg; }
 
 /* ======================= PDF ACTIONS ======================= */
+function sendCompanyEventEmail(kind,obj){
+  const recipient = String(obj.buyerEmail || '').trim();
+  if(!recipient){ showToast('Add the buyer email before creating an email draft.'); return; }
+  const isQuotation = kind === 'quotation';
+  const reference = isQuotation ? getQuotationNo(obj) : getBookingNo(obj);
+  const documentName = isQuotation ? 'quotation' : 'booking confirmation';
+  const filename = documentFileName(isQuotation ? 'quotation' : 'booking', obj);
+  const doc = isQuotation ? buildQuotationPDF(obj) : buildBookingSummaryPDF(obj);
+  doc.save(filename);
+  const companyName = obj.buyerCompany || obj.namaClient || 'your company';
+  const subject = `Kerlip Photobooth ${isQuotation?'Quotation':'Booking Confirmation'} - ${companyName} - ${displayDate(obj.tarikhEvent)}`;
+  const body = [
+    `Dear ${obj.namaClient || 'Sir/Madam'},`, '',
+    'Thank you for choosing Kerlip Photobooth for your company event.', '',
+    `Please find attached the ${documentName} (${reference}) for ${companyName}.`,
+    `Event date: ${displayDate(obj.tarikhEvent)}`,
+    `Event location: ${obj.lokasiEvent || 'To be confirmed'}`,
+    `Package: ${obj.pakej || 'To be confirmed'}`,
+    `Total: ${isQuotation ? rmVal(quotationGrandTotal(obj)) : rmVal(obj.jumlahKeseluruhan)}`, '',
+    isQuotation ? 'Please let us know if you would like to proceed or require any amendments.' : 'Your booking details are included in the attached confirmation.', '',
+    'Kind regards,', 'Kerlip Photobooth'
+  ].join('\n');
+  window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  showToast(`PDF downloaded — attach ${filename} to the email draft.`);
+}
+
 function handlePdfAction(action){
   const [mode, docType] = action.split(':');
   const { kind, obj } = State.docModal;
@@ -3491,7 +3574,8 @@ function handlePdfAction(action){
     doc.save(filename);
     const subject = encodeURIComponent(`Kerlip Photobooth — ${docType}`);
     const body = encodeURIComponent(`Hi ${waName},\n\nPlease find attached your ${docType} from Kerlip Photobooth (downloaded as ${filename}).\n\nThank you,\nKerlip Photobooth`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    const recipient = kind==='staff' ? '' : String(obj.buyerEmail || '').trim();
+    window.open(`mailto:${encodeURIComponent(recipient)}?subject=${subject}&body=${body}`, '_blank');
     showToast('PDF downloaded — attach it to the email draft that just opened.');
   }
 }
