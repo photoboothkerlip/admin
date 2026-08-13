@@ -1872,8 +1872,10 @@ function buildInvoicePDF(b){
   sectionTitle('Services', left, y, usableW);
   y += 5.2;
 
+  const photoboothSets = Math.max(1, Math.floor(num(b.photoboothSets) || 1));
+  const unitServiceAmount = serviceAmount / photoboothSets;
   const rows = [
-    ['1', short(b.pakej || 'Premium Photobooth Package', 64), '1', rmVal(serviceAmount), rmVal(serviceAmount)],
+    ['1', short(b.pakej || 'Premium Photobooth Package', 64), String(photoboothSets), rmVal(unitServiceAmount), rmVal(serviceAmount)],
   ];
   if(transport > 0){ rows.push(['2','Transportation','1',rmVal(transport),rmVal(transport)]); }
   packageBenefitLabels(b).forEach(label => rows.push(['', short(label, 64), '1', 'Included', 'RM0.00']));
