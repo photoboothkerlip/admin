@@ -1009,7 +1009,7 @@ function emptyQuotation(){
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
-    lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', photoboothSets:1, pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
@@ -1189,7 +1189,7 @@ const QUOTATION_FIELDS = [
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
   ['buyerEmail','Buyer Email','email'],
-  ['packageType','Package Type','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['pakej','Package Name (Auto)','readonly'],['pakejPrice','Package Price (RM)','number'],
+  ['packageType','Package Type','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['photoboothSets','Number of Photobooth Sets','number'],['pakej','Package Name (Auto)','readonly'],['pakejPrice','Package Price (RM)','number'],
   ['backdrop','Backdrop Selected','text'],['addOn','Pakej Tambahan','text'],
   ['addOnPrice','Pakej Tambahan Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
   ['discount','Discount (RM)','number'],['sstPercent','SST / Tax (%)','number'],
@@ -1596,7 +1596,7 @@ function buildQuotationPDF(q){
   const black=[0,0,0], text=[0,0,0], gold=[176,138,62], line=[185,185,185], soft=[250,250,250], white=[255,255,255];
   const left=14,right=196,usableW=182;
   const quoteNo=getQuotationNo(q), quoteDate=displayDate(q.quotationDate||todayISO());
-  const packagePrice=num(q.pakejPrice), addOnPrice=num(q.addOnPrice), transport=num(q.transportCharges);
+  const packagePrice=num(q.pakejPrice), photoboothSets=Math.max(1,Math.floor(num(q.photoboothSets)||1)), addOnPrice=num(q.addOnPrice), transport=num(q.transportCharges);
   const discount=num(q.discount), sst=quotationTax(q), total=quotationGrandTotal(q);
   const split=(v,w)=>doc.splitTextToSize(String(v||'—'),w);
   const short=(v,max=70)=>{const s=String(v||'—').replace(/\s+/g,' ').trim();return s.length>max?s.slice(0,max-1)+'…':s;};
@@ -1646,7 +1646,7 @@ function buildQuotationPDF(q){
   // Services table.
   let y=boxY+boxH+7;section('Services',left,y,usableW);y+=5.2;
   const rows=[];let no=1;
-  rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),'1',rmVal(packagePrice),rmVal(packagePrice)]);
+  rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),String(photoboothSets),rmVal(packagePrice/photoboothSets),rmVal(packagePrice)]);
   if(addOnPrice>0||String(q.addOn||'').trim())rows.push([String(no++),short(q.addOn||'Add-On',64),'1',addOnPrice>0?rmVal(addOnPrice):'Included',addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
   if(transport>0)rows.push([String(no++),'Transportation','1',rmVal(transport),rmVal(transport)]);
   // Keep automatic freebies visible in the quotation even when the package
@@ -2717,7 +2717,7 @@ function renderQuotations(){
     </div>
     <div class="card table-card table-scroll">
       <table class="fit-table">
-        <thead><tr>${['No.','Quotation No.','Date','Client','Event Date','Package','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['No.','Quotation No.','Date','Client','Event Date','Package','PB Sets','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map((q,index)=>{
             const total = quotationGrandTotal(q), bal = total-num(q.depositRequired);
@@ -2728,6 +2728,7 @@ function renderQuotations(){
               <td>${esc(q.namaClient)}</td>
               <td>${displayDate(q.tarikhEvent)}</td>
               <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(q.pakej)}</td>
+              <td style="text-align:center;font-weight:700">${Math.max(1,Math.floor(num(q.photoboothSets)||1))}</td>
               <td>${rm(total)}</td>
               <td>${rm(q.depositRequired)}</td>
               <td>${rm(bal)}</td>
@@ -2739,7 +2740,7 @@ function renderQuotations(){
                 ${q.status!=='Accepted' ? `<button class="btn" style="padding:5px 7px;font-size:10px" data-convert="${q.id}" title="Convert to Booking">Convert</button>` : `<span style="font-size:10px;color:var(--success);font-weight:700;align-self:center">Booked ✓</span>`}
               </div></td>
             </tr>`;
-          }).join('') || `<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
+          }).join('') || `<tr><td colspan="13" style="text-align:center;padding:28px;color:var(--muted)">No quotations yet.</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -3258,7 +3259,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
-      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
+      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', pakejTambahanPrice:q.addOnPrice||0, transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
@@ -3493,6 +3494,7 @@ function submitForm(e){
 
   if(type==='quotation'){
     ensurePackageDefaults(out);
+    if(!Number.isInteger(out.photoboothSets) || out.photoboothSets < 1){ showFormWarn('Number of Photobooth Sets must be a whole number of at least 1.'); return; }
     out.status = $('ff-status').value;
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
     if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
