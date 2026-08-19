@@ -991,7 +991,7 @@ function themeButtonHtml(){
 function sampleBooking(){
   return { id:uid(), bookingDate:todayISO(), jenisEvent:'Hospital Appreciation Event', namaClient:'Ms Tina',
     noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
-    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', photoboothSets:1, backdrop:'', pakejTambahan:'N/A', waktuEvent:'',
+    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'',
     transportCharges:0, jumlahKeseluruhan:1150, bayaranDeposit:0, paymentStatus:'Paid', bookingStatus:'Confirmed',
     calendarSynced:false, quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
@@ -999,7 +999,7 @@ function emptyBooking(){
   const bookingDate = todayISO();
   const bookingId = createBookingId(bookingDate);
   return { id:uid(), bookingId, bookingDate, jenisEvent:'', buyerCompany:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
-    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', photoboothSets:1, backdrop:'', pakejTambahan:'N/A', waktuEvent:'', transportCharges:0,
+    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
@@ -1176,7 +1176,7 @@ const BOOKING_FIELDS = [
   ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
   ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['photoboothSets','Number of Photobooth Sets','number'],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
-  ['pakejTambahan','Pakej Tambahan','text'],['waktuEvent','Waktu Event','text'],
+  ['pakejTambahan','Pakej Tambahan','text'],['pakejTambahanPrice','Pakej Tambahan Price (RM)','number'],['waktuEvent','Waktu Event','text'],
   ['transportCharges','Transportation Charges (RM)','number'],
   ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
   ['revenueCategory','Revenue Category (for Account Statement)','select',REVENUE_CATEGORIES],
@@ -1190,8 +1190,8 @@ const QUOTATION_FIELDS = [
   ['buyerCompany','Company Name','text'],
   ['buyerEmail','Buyer Email','email'],
   ['packageType','Package Type','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['pakej','Package Name (Auto)','readonly'],['pakejPrice','Package Price (RM)','number'],
-  ['backdrop','Backdrop Selected','text'],['addOn','Add-On Package','text'],
-  ['addOnPrice','Add-On Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
+  ['backdrop','Backdrop Selected','text'],['addOn','Pakej Tambahan','text'],
+  ['addOnPrice','Pakej Tambahan Price (RM)','number'],['transportCharges','Transportation Charges (RM)','number'],
   ['discount','Discount (RM)','number'],['sstPercent','SST / Tax (%)','number'],
   ['depositRequired','Deposit Required (RM)','number'],
 ];
@@ -1670,7 +1670,7 @@ function buildQuotationPDF(q){
   // Quotation summary mirrors the invoice payment summary.
   y=Math.max(doc.lastAutoTable.finalY+5,174);
   doc.setFont('helvetica','bold');doc.setFontSize(8.8);doc.text('QUOTATION SUMMARY',right,y,{align:'right'});y+=4;
-  const summary=[['Package',rmVal(packagePrice)],['Add-On',rmVal(addOnPrice)],['Transportation',rmVal(transport)]];
+  const summary=[['Package',rmVal(packagePrice)],['Pakej Tambahan',rmVal(addOnPrice)],['Transportation',rmVal(transport)]];
   if(discount>0)summary.push(['Discount','-'+rmVal(discount)]);
   if(sst>0)summary.push([`SST (${num(q.sstPercent)}%)`,rmVal(sst)]);
   summary.push(['TOTAL PRICE',rmVal(total)]);
@@ -1717,7 +1717,7 @@ function buildBookingSummaryPDF(b){
   doc.autoTable({ startY:y, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:9},
     styles:{fontSize:9,cellPadding:3}, margin:{left:16,right:16},
     head:[['Item','Detail']],
-    body:[['Package', b.pakej||'—'],['Photobooth Sets', Math.max(1, Math.floor(num(b.photoboothSets)||1))],['Included Free Items', packageBenefitLabels(b).join(', ')||'None'],['Backdrop', b.backdrop||'—'],['Add-On', b.pakejTambahan||'N/A'],
+    body:[['Package', b.pakej||'—'],['Photobooth Sets', Math.max(1, Math.floor(num(b.photoboothSets)||1))],['Included Free Items', packageBenefitLabels(b).join(', ')||'None'],['Backdrop', b.backdrop||'—'],['Pakej Tambahan', b.pakejTambahan||'N/A'],['Pakej Tambahan Price', rm(b.pakejTambahanPrice)],
       ['Transportation Charges', rm(b.transportCharges)]],
   });
   y = doc.lastAutoTable.finalY + 8;
@@ -1765,13 +1765,14 @@ function buildInvoicePDF(b){
 
   const total = num(b.jumlahKeseluruhan);
   const transport = num(b.transportCharges);
+  const addOnPrice = num(b.pakejTambahanPrice);
   // Deposit Paid must always follow the actual deposit field from the booking form.
   // Do not auto-change it to the full total when Payment Status is "Paid".
   const depositPaid = num(b.bayaranDeposit);
   const subtotal = total;
   const grandTotal = subtotal;
   const balanceDue = b.paymentStatus === 'Paid' ? 0 : Math.max(0, grandTotal - depositPaid);
-  const serviceAmount = Math.max(0, total - transport);
+  const serviceAmount = Math.max(0, total - transport - addOnPrice);
 
   const split = (v,w) => doc.splitTextToSize(String(v || '—'), w);
   const clean = (v) => String(v || '—').replace(/\s+/g,' ').trim();
@@ -1891,7 +1892,7 @@ function buildInvoicePDF(b){
   if(transport > 0){ rows.push(['2','Transportation','1',rmVal(transport),rmVal(transport)]); }
   packageBenefitLabels(b).forEach(label => rows.push(['', short(label, 64), '1', 'Included', 'RM0.00']));
   if((b.pakejTambahan || '').trim() && (b.pakejTambahan || '').trim().toUpperCase() !== 'N/A'){
-    rows.push(['', short(b.pakejTambahan, 64), '1', 'Included', 'RM0.00']);
+    rows.push(['', short(b.pakejTambahan, 64), '1', addOnPrice>0?rmVal(addOnPrice):'Included', addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
   }
 
   doc.autoTable({
@@ -3258,7 +3259,7 @@ function attachGlobalEvents(){
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
       lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), backdrop:q.backdrop,
-      pakejTambahan:q.addOn||'N/A', transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
+      pakejTambahan:q.addOn||'N/A', pakejTambahanPrice:q.addOnPrice||0, transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
     q.status='Accepted'; persist('quotations');
@@ -3727,7 +3728,7 @@ function exportBookingsExcel(){
   const rows = State.bookings.map(b => ({
     'Booking ID': getBookingId(b), 'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Company Name': b.buyerCompany||'', 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
     'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
-    'Pakej': b.pakej, 'Photobooth Sets': Math.max(1, Math.floor(num(b.photoboothSets)||1)), 'Free Items': packageBenefitLabels(b).join(', '), 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Waktu Event': b.waktuEvent,
+    'Pakej': b.pakej, 'Photobooth Sets': Math.max(1, Math.floor(num(b.photoboothSets)||1)), 'Free Items': packageBenefitLabels(b).join(', '), 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Pakej Tambahan Price (RM)': num(b.pakejTambahanPrice), 'Waktu Event': b.waktuEvent,
     'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
     'Balance (RM)': bookingBalance(b), 'Payment Status': b.paymentStatus,
     'Booking Status': b.bookingStatus, 'GCal Synced': b.calendarSynced?'Yes':'No',
