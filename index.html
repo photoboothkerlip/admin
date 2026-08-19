@@ -1086,19 +1086,22 @@ function getAutoPackageBenefits(obj={}){
   const benefits = [];
 
   const isPurePhotobooth = packageType.includes('PHOTOBOOTH') && !packageType.includes('360') && !packageType.includes('COMBO');
+  const isCombo = packageType.includes('COMBO');
 
-  // 360 Spinbooth and Combo packages do not receive auto free guest book or keychain.
-  if(!isPurePhotobooth || hours < 4){
+  // 360 Spinbooth-only packages do not receive automatic freebies.
+  // Photobooth and Combo packages become eligible from 4 hours onward.
+  if((!isPurePhotobooth && !isCombo) || hours < 4){
     return benefits;
   }
 
-  // Photobooth only: 4 hours and above receive 100pcs keychain per requested set.
-  const keychainQty = 100 * photoboothSets;
+  // Combo receives exactly 100pcs keychain. Photobooth keeps the existing
+  // 100pcs-per-requested-set rule.
+  const keychainQty = isCombo ? 100 : 100 * photoboothSets;
   benefits.push({ key:'keychain', quantity:keychainQty, label:`FREE ${keychainQty} PCS KEYCHAIN` });
 
   // Wedding photobooth only: 4 hours and above receive free guest book.
-  // Company photobooth booking does not receive free guest book.
-  if(eventType === 'WEDDING'){
+  // Combo and company bookings do not receive an automatic guest book.
+  if(isPurePhotobooth && eventType === 'WEDDING'){
     benefits.push({ key:'guestbook', label:'FREE PREMIUM GUEST BOOK' });
   }
 
@@ -1646,7 +1649,15 @@ function buildQuotationPDF(q){
   rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),'1',rmVal(packagePrice),rmVal(packagePrice)]);
   if(addOnPrice>0||String(q.addOn||'').trim())rows.push([String(no++),short(q.addOn||'Add-On',64),'1',addOnPrice>0?rmVal(addOnPrice):'Included',addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
   if(transport>0)rows.push([String(no++),'Transportation','1',rmVal(transport),rmVal(transport)]);
-  quotationFeatureList(q).slice(0,6).forEach(label=>rows.push(['',short(label,64),'1','Included','RM0.00']));
+  // Keep automatic freebies visible in the quotation even when the package
+  // has more features than the six-row PDF limit.
+  const benefitLabels=packageBenefitLabels(q);
+  const baseFeatureLabels=quotationFeatureList(q).filter(label=>!benefitLabels.includes(label));
+  const visibleFeatureLabels=[
+    ...baseFeatureLabels.slice(0,Math.max(0,6-benefitLabels.length)),
+    ...benefitLabels
+  ].slice(0,6);
+  visibleFeatureLabels.forEach(label=>rows.push(['',short(label,64),'1','Included','RM0.00']));
   doc.autoTable({
     startY:y,margin:{left,right:14},theme:'grid',pageBreak:'avoid',rowPageBreak:'avoid',
     head:[['No','Description','Qty','Unit Price','Amount']],body:rows,
@@ -3107,7 +3118,7 @@ function renderFormModal(){
 
   if(type==='booking' || type==='quotation'){
     const benefitText = packageBenefitLabels(data);
-    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map(esc).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: 360 Spinbooth / Combo = no auto free item. Photobooth bookings of 4 hours and above receive 100pcs keychain per photobooth set (for example, 2 sets = 200pcs). Wedding photobooth also receives a free guest book. Company photobooth receives keychains only.</div></div>`;
+    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map(esc).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Photobooth and Combo bookings of 4 hours and above receive free keychains. Combo receives 100pcs; Photobooth receives 100pcs per photobooth set. Wedding Photobooth also receives a free guest book. 360 Spinbooth-only receives no automatic free item.</div></div>`;
   }
 
   return `<div class="modal-bg" id="modal-bg">
