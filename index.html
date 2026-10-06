@@ -757,6 +757,13 @@ const eventTimeRange = (obj={}) => {
   if(start && end) return `${start} - ${end}`;
   return String(obj.waktuEvent || start || end || 'TBC');
 };
+const generateEventScheduleDescription = (obj={}) => {
+  const days = Math.max(1, Math.floor(num(obj.numberOfDays) || 1));
+  const type = String(obj.packageType || 'PHOTOBOOTH').trim().toUpperCase();
+  const service = type.includes('COMBO') ? 'PHOTOBOOTH + 360 SPINBOOTH' : type.includes('360') ? '360 SPINBOOTH' : 'PHOTOBOOTH';
+  const daily = days > 1 ? ' DAILY' : '';
+  return `${days}-DAY ${service} SERVICE\n${eventDateRange(obj)}\n${eventTimeRange(obj)}${daily}`;
+};
 const legacyEventTimes = (value='') => {
   const matches = String(value||'').match(/\b([01]\d|2[0-3]):[0-5]\d\b/g) || [];
   return [matches[0]||'',matches[1]||''];
@@ -1024,7 +1031,7 @@ function emptyQuotation(){
   const code = uniqueQuotationLetterCode(quotationDate);
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
-  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'', eventStartTime:'', eventEndTime:'', waktuEvent:'',
+  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'', eventStartTime:'', eventEndTime:'', waktuEvent:'', eventScheduleDescription:'',
     lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, freeKeychainQty:'100', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
@@ -1211,6 +1218,7 @@ const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
   ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Start Date','date'],['eventEndDate','Event End Date','date'],
   ['eventStartTime','Event Start Time','time'],['eventEndTime','Event End Time','time'],
+  ['eventScheduleDescription','Event Schedule / Description','textarea'],
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
   ['buyerEmail','Buyer Email','email'],
@@ -1671,7 +1679,9 @@ function buildQuotationPDF(q){
   // Services table.
   let y=boxY+boxH+7;section('Services',left,y,usableW);y+=5.2;
   const rows=[];let no=1;
-  rows.push([String(no++),short(q.pakej||'Premium Photobooth Package',64),String(photoboothSets),rmVal(packagePrice/photoboothSets),rmVal(packagePrice)]);
+  const quoteDays=Math.max(1,Math.floor(num(q.numberOfDays)||1));
+  const serviceDescription=String(q.eventScheduleDescription||generateEventScheduleDescription(q)||q.pakej||'Premium Photobooth Package').trim();
+  rows.push([String(no++),serviceDescription,`${quoteDays} day${quoteDays===1?'':'s'}`,rmVal(packagePrice/quoteDays),rmVal(packagePrice)]);
   if(addOnPrice>0||String(q.addOn||'').trim())rows.push([String(no++),short(q.addOn||'Add-On',64),'1',addOnPrice>0?rmVal(addOnPrice):'Included',addOnPrice>0?rmVal(addOnPrice):'RM0.00']);
   if(transport>0)rows.push([String(no++),'Transportation','1',rmVal(transport),rmVal(transport)]);
   // Keep automatic freebies visible in the quotation even when the package
@@ -1689,7 +1699,7 @@ function buildQuotationPDF(q){
     headStyles:{fillColor:black,textColor:white,fontStyle:'bold',fontSize:8.3,halign:'center',cellPadding:1.9},
     styles:{fontSize:8,fontStyle:'normal',cellPadding:1.7,lineColor:line,lineWidth:.25,textColor:text,overflow:'linebreak',minCellHeight:5.4},
     alternateRowStyles:{fillColor:soft},
-    columnStyles:{0:{cellWidth:12,halign:'center'},1:{cellWidth:100,fontStyle:'bold'},2:{cellWidth:15,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:25,halign:'right',fontStyle:'bold'}}
+    columnStyles:{0:{cellWidth:12,halign:'center'},1:{cellWidth:97,fontStyle:'bold'},2:{cellWidth:18,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:25,halign:'right',fontStyle:'bold'}}
   });
 
   // Quotation summary mirrors the invoice payment summary.
@@ -3164,6 +3174,8 @@ function renderFormModal(){
             ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${opts.map(o=>`<option ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`
             : t==='selectDynamicPackageHours'
               ? `<div class="field"><span class="label">${label}</span><select class="input" id="ff-${key}" data-key="${key}">${packageHoursOptionsFor(data.packageType).map(o=>`<option value="${esc(o)}" ${String(data[key]||'').toLowerCase()===String(o).toLowerCase()?'selected':''}>${esc(o)} HOURS</option>`).join('')}</select></div>`
+            : t==='textarea'
+              ? `<div class="field" style="grid-column:1/-1"><span class="label">${label}</span><textarea class="input" id="ff-${key}" data-key="${key}" rows="5" style="height:auto;min-height:120px;resize:vertical">${esc(data[key])}</textarea><div style="font-size:11px;color:var(--muted);margin-top:4px">Generated automatically from the event schedule. You can edit this wording before saving.</div></div>`
             : t==='readonly'
               ? `<div class="field"><span class="label">${label}</span><input class="input" type="text" id="ff-${key}" data-key="${key}" value="${esc(data[key] || buildPackageName(data.packageType,data.packageHours))}" readonly style="background:var(--surface);font-weight:700" /></div>`
             : t==='selectDynamic'
@@ -3365,6 +3377,32 @@ function attachGlobalEvents(){
     eventEndDateInput.min = eventStartDateInput.value || '';
   }
 
+  const eventStartTimeInput = $('ff-eventStartTime');
+  const eventEndTimeInput = $('ff-eventEndTime');
+  const numberOfDaysInput = $('ff-numberOfDays');
+  const eventScheduleDescriptionInput = $('ff-eventScheduleDescription');
+  if(eventScheduleDescriptionInput && State.formModal?.type === 'quotation'){
+    eventScheduleDescriptionInput.dataset.autoValue = eventScheduleDescriptionInput.value;
+    const refreshScheduleDescription = () => {
+      if(eventScheduleDescriptionInput.value && eventScheduleDescriptionInput.value !== eventScheduleDescriptionInput.dataset.autoValue) return;
+      const preview = {
+        ...State.formModal.data,
+        tarikhEvent:eventStartDateInput?.value || '',
+        eventEndDate:eventEndDateInput?.value || '',
+        eventStartTime:eventStartTimeInput?.value || '',
+        eventEndTime:eventEndTimeInput?.value || '',
+        numberOfDays:numberOfDaysInput?.value || 1,
+        packageType:packageTypeSelect?.value || State.formModal.data.packageType
+      };
+      const next = generateEventScheduleDescription(preview);
+      eventScheduleDescriptionInput.value = next;
+      eventScheduleDescriptionInput.dataset.autoValue = next;
+    };
+    [eventStartDateInput,eventEndDateInput,eventStartTimeInput,eventEndTimeInput,numberOfDaysInput].filter(Boolean).forEach(el=>el.addEventListener('change',refreshScheduleDescription));
+    if(packageTypeSelect) packageTypeSelect.addEventListener('change',refreshScheduleDescription);
+    refreshScheduleDescription();
+  }
+
   const companyEventType = $('ff-jenisEvent');
   const companyNameField = $('field-buyerCompany');
   if(companyEventType && companyNameField && State.formModal && ['booking','quotation'].includes(State.formModal.type)){
@@ -3503,6 +3541,9 @@ function openForm(type, data){
     data.eventStartTime = data.eventStartTime || legacyTimes[0] || '';
     data.eventEndTime = data.eventEndTime || legacyTimes[1] || '';
   }
+  if(type === 'quotation' && !String(data.eventScheduleDescription||'').trim()){
+    data.eventScheduleDescription = generateEventScheduleDescription(data);
+  }
   if(type === 'booking') data.revenueCategory = canonicalRevenueCategory(data.revenueCategory, data);
   if(type === 'expense') data = {...data, category:canonicalExpenseCategory(data.category)};
   State.formModal = { type, data };
@@ -3557,6 +3598,7 @@ function submitForm(e){
     if(!out.eventStartTime || !out.eventEndTime){ showFormWarn('Event Start Time and Event End Time are required.'); return; }
     if(`${out.eventEndDate}T${out.eventEndTime}` <= `${out.tarikhEvent}T${out.eventStartTime}`){ showFormWarn('Event End Date and Time must be later than the start.'); return; }
     out.waktuEvent = `${out.eventStartTime} - ${out.eventEndTime}`;
+    if(!String(out.eventScheduleDescription||'').trim()) out.eventScheduleDescription = generateEventScheduleDescription(out);
     if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
       showFormWarn('Company Name is required for a Company event.'); return;
     }
