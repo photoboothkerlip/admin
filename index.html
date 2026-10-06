@@ -1007,7 +1007,7 @@ function themeButtonHtml(){
 function sampleBooking(){
   return { id:uid(), bookingDate:todayISO(), jenisEvent:'Hospital Appreciation Event', namaClient:'Ms Tina',
     noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', eventEndDate:'2026-07-05', eventStartTime:'', eventEndTime:'', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
-    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', numberOfDays:1, photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'',
+    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', numberOfDays:1, photoboothSets:1, freeKeychainQty:'100', backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'',
     transportCharges:0, jumlahKeseluruhan:1150, bayaranDeposit:0, paymentStatus:'Paid', bookingStatus:'Confirmed',
     calendarSynced:false, quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
@@ -1015,7 +1015,7 @@ function emptyBooking(){
   const bookingDate = todayISO();
   const bookingId = createBookingId(bookingDate);
   return { id:uid(), bookingId, bookingDate, jenisEvent:'', buyerCompany:'', namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'', eventStartTime:'', eventEndTime:'', lokasiEvent:'',
-    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'', transportCharges:0,
+    namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, freeKeychainQty:'100', backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
 }
@@ -1199,7 +1199,7 @@ const BOOKING_FIELDS = [
   ['tarikhEvent','Event Start Date','date'],['eventEndDate','Event End Date','date'],
   ['eventStartTime','Event Start Time','time'],['eventEndTime','Event End Time','time'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
-  ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['numberOfDays','Number of Days','number'],['photoboothSets','Number of Photobooth Sets','number'],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
+  ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['numberOfDays','Number of Days','number'],['photoboothSets','Number of Photobooth Sets','number'],['freeKeychainQty','Free Keychain Quantity','select',KEYCHAIN_QTY_OPTIONS],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
   ['pakejTambahan','Pakej Tambahan','text'],['pakejTambahanPrice','Pakej Tambahan Price (RM)','number'],
   ['transportCharges','Transportation Charges (RM)','number'],
   ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
@@ -3287,7 +3287,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent, eventEndDate:q.eventEndDate||q.tarikhEvent, eventStartTime:q.eventStartTime||'', eventEndTime:q.eventEndTime||'',
-      lokasiEvent:q.lokasiEvent, waktuEvent:eventTimeRange(q), jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), numberOfDays:Math.max(1,Math.floor(num(q.numberOfDays)||1)), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), backdrop:q.backdrop,
+      lokasiEvent:q.lokasiEvent, waktuEvent:eventTimeRange(q), jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), numberOfDays:Math.max(1,Math.floor(num(q.numberOfDays)||1)), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), freeKeychainQty:String(q.freeKeychainQty||'100'), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', pakejTambahanPrice:q.addOnPrice||0, transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
