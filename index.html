@@ -1015,7 +1015,7 @@ function emptyQuotation(){
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
   return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'',
-    lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
+    lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, freeKeychainQty:'100', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
 function emptyStaff(){
@@ -1102,7 +1102,8 @@ function getAutoPackageBenefits(obj={}){
 
   // Combo receives exactly 100pcs keychain. Photobooth keeps the existing
   // 100pcs-per-requested-set rule.
-  const keychainQty = isCombo ? 100 : 100 * photoboothSets;
+  const selectedKeychainQty = KEYCHAIN_QTY_OPTIONS.includes(String(obj.freeKeychainQty||'')) ? num(obj.freeKeychainQty) : 0;
+  const keychainQty = selectedKeychainQty || (isCombo ? 100 : 100 * photoboothSets);
   benefits.push({ key:'keychain', quantity:keychainQty, label:`FREE ${keychainQty} PCS KEYCHAIN` });
 
   // Wedding photobooth only: 4 hours and above receive free guest book.
@@ -1150,6 +1151,7 @@ const OPEX_CATEGORIES = [
   'Commission / referral fee','Bank charges','Accounting / admin cost','Miscellaneous expenses',
 ];
 const PAYMENT_METHODS = ['Bank Transfer','Cash','DuitNow','Card','E-Wallet','Other'];
+const KEYCHAIN_QTY_OPTIONS = ['100','200','300','400','500','600','700','800','900','1000'];
 const EVENT_TYPE_OPTIONS = ['WEDDING','COMPANY','PERSONAL'];
 const PACKAGE_TYPE_OPTIONS = ['PHOTOBOOTH','360 SPINBOOTH','COMBO'];
 const PACKAGE_DURATION_OPTIONS = {
@@ -1186,7 +1188,7 @@ const BOOKING_FIELDS = [
   ['namaClient','Nama Client','text'],['noHpClient','No HP Client','text'],
   ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
-  ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['numberOfDays','Number of Days','number'],['photoboothSets','Number of Photobooth Sets','number'],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
+  ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['numberOfDays','Number of Days','number'],['photoboothSets','Number of Photobooth Sets','number'],['freeKeychainQty','Free Keychain Quantity','select',KEYCHAIN_QTY_OPTIONS],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
   ['pakejTambahan','Pakej Tambahan','text'],['pakejTambahanPrice','Pakej Tambahan Price (RM)','number'],['waktuEvent','Waktu Event','text'],
   ['transportCharges','Transportation Charges (RM)','number'],
   ['jumlahKeseluruhan','Jumlah Keseluruhan (RM)','number'],['bayaranDeposit','Bayaran Deposit (RM)','number'],
@@ -3134,7 +3136,7 @@ function renderFormModal(){
     const benefitText = packageBenefitLabels(data);
     const descriptionItems = quotationFeatureList(data);
     const descriptionMarkup = type==='quotation' ? numberedDescriptionTableHTML(descriptionItems) : descriptionItems.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>');
-    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Package Description</span><div class="input" id="numbered-package-description" style="height:auto;min-height:44px;${type==='quotation'?'padding:0;overflow:hidden;':'font-weight:700;line-height:1.55;'}background:var(--surface)">${descriptionMarkup}</div></div><div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Photobooth and Combo bookings of 4 hours and above receive free keychains. Combo receives 100pcs; Photobooth receives 100pcs per photobooth set. Wedding Photobooth also receives a free guest book. 360 Spinbooth-only receives no automatic free item.</div></div>`;
+    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Package Description</span><div class="input" id="numbered-package-description" style="height:auto;min-height:44px;${type==='quotation'?'padding:0;overflow:hidden;':'font-weight:700;line-height:1.55;'}background:var(--surface)">${descriptionMarkup}</div></div><div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Photobooth and Combo bookings of 4 hours and above receive free keychains. For quotations, select 100 to 1,000 pcs from the Free Keychain Quantity list. Wedding Photobooth also receives a free guest book. 360 Spinbooth-only receives no automatic free item.</div></div>`;
   }
 
   return `<div class="modal-bg" id="modal-bg">
@@ -3313,11 +3315,12 @@ function attachGlobalEvents(){
   const packageHoursSelect = $('ff-packageHours');
   const packageNameInput = $('ff-pakej');
   const photoboothSetsInput = $('ff-photoboothSets');
+  const freeKeychainQtyInput = $('ff-freeKeychainQty');
   const autoFreeItems = $('auto-free-items');
   const numberedPackageDescription = $('numbered-package-description');
   if(packageTypeSelect && packageHoursSelect && packageNameInput && State.formModal && (State.formModal.type === 'booking' || State.formModal.type === 'quotation')){
     const refreshBenefits = () => {
-      const preview = {...State.formModal.data, packageType:packageTypeSelect.value, packageHours:packageHoursSelect.value, photoboothSets:photoboothSetsInput ? photoboothSetsInput.value : 1};
+      const preview = {...State.formModal.data, packageType:packageTypeSelect.value, packageHours:packageHoursSelect.value, photoboothSets:photoboothSetsInput ? photoboothSetsInput.value : 1, freeKeychainQty:freeKeychainQtyInput ? freeKeychainQtyInput.value : State.formModal.data.freeKeychainQty};
       const labels = packageBenefitLabels(preview);
       if(autoFreeItems) autoFreeItems.innerHTML = labels.length ? labels.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE';
       if(numberedPackageDescription){
@@ -3336,6 +3339,7 @@ function attachGlobalEvents(){
     packageTypeSelect.onchange = refreshPackageName;
     packageHoursSelect.onchange = refreshPackageName;
     if(photoboothSetsInput) photoboothSetsInput.oninput = refreshBenefits;
+    if(freeKeychainQtyInput) freeKeychainQtyInput.onchange = refreshBenefits;
     refreshPackageName();
   }
 
