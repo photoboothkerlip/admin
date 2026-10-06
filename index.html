@@ -3304,12 +3304,16 @@ function attachGlobalEvents(){
   const packageNameInput = $('ff-pakej');
   const photoboothSetsInput = $('ff-photoboothSets');
   const autoFreeItems = $('auto-free-items');
+  const numberedPackageDescription = $('numbered-package-description');
   if(packageTypeSelect && packageHoursSelect && packageNameInput && State.formModal && (State.formModal.type === 'booking' || State.formModal.type === 'quotation')){
     const refreshBenefits = () => {
-      if(!autoFreeItems) return;
       const preview = {...State.formModal.data, packageType:packageTypeSelect.value, packageHours:packageHoursSelect.value, photoboothSets:photoboothSetsInput ? photoboothSetsInput.value : 1};
       const labels = packageBenefitLabels(preview);
-      autoFreeItems.innerHTML = labels.length ? labels.map(esc).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE';
+      if(autoFreeItems) autoFreeItems.innerHTML = labels.length ? labels.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE';
+      if(numberedPackageDescription){
+        const descriptions = quotationFeatureList(preview);
+        numberedPackageDescription.innerHTML = descriptions.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>');
+      }
     };
     const refreshPackageName = () => {
       const validHours = packageHoursOptionsFor(packageTypeSelect.value);
@@ -3499,6 +3503,7 @@ function submitForm(e){
 
   if(type==='quotation'){
     ensurePackageDefaults(out);
+    if(!Number.isInteger(out.numberOfDays) || out.numberOfDays < 1){ showFormWarn('Number of Days must be a whole number of at least 1.'); return; }
     if(!Number.isInteger(out.photoboothSets) || out.photoboothSets < 1){ showFormWarn('Number of Photobooth Sets must be a whole number of at least 1.'); return; }
     out.status = $('ff-status').value;
     if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
