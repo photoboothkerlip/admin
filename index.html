@@ -751,6 +751,16 @@ const eventDateRange = (obj={}) => {
   if(!start) return '—';
   return !end || end===start ? displayDate(start) : `${displayDate(start)} - ${displayDate(end)}`;
 };
+const eventTimeRange = (obj={}) => {
+  const start = String(obj.eventStartTime || '').trim();
+  const end = String(obj.eventEndTime || '').trim();
+  if(start && end) return `${start} - ${end}`;
+  return String(obj.waktuEvent || start || end || 'TBC');
+};
+const legacyEventTimes = (value='') => {
+  const matches = String(value||'').match(/\b([01]\d|2[0-3]):[0-5]\d\b/g) || [];
+  return [matches[0]||'',matches[1]||''];
+};
 const esc = (s) => (s===undefined||s===null) ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const waLink = (phone, text) => `https://wa.me/${String(phone||'').replace(/[^0-9]/g,'')}?text=${encodeURIComponent(text)}`;
 const parseTimeRange = (text) => {
@@ -1014,7 +1024,7 @@ function emptyQuotation(){
   const code = uniqueQuotationLetterCode(quotationDate);
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
-  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'',
+  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'', eventStartTime:'', eventEndTime:'', waktuEvent:'',
     lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, freeKeychainQty:'100', pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
@@ -1199,6 +1209,7 @@ const BOOKING_FIELDS = [
 const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
   ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Start Date','date'],['eventEndDate','Event End Date','date'],
+  ['eventStartTime','Event Start Time','time'],['eventEndTime','Event End Time','time'],
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
   ['buyerEmail','Buyer Email','email'],
@@ -1411,7 +1422,7 @@ function buildQuotationPDFLegacy(q){
   const eventValues = [
     safe(q.jenisEvent),
     displayDate(q.tarikhEvent),
-    safe(q.waktuEvent || 'TBC'),
+    safe(eventTimeRange(q)),
     safe(q.lokasiEvent)
   ];
 
@@ -1564,7 +1575,7 @@ function buildQuotationPDFEditorialLegacy(q){
   rule(105);
 
   y=sectionTitle('Event brief',113);
-  const eventFields=[['Event',upper(q.jenisEvent)],['Date',`${eventDateRange(q)} · ${Math.max(1,Math.floor(num(q.numberOfDays)||1))} DAY(S)`],['Time',upper(q.waktuEvent,'TBC')],['Venue',upper(q.lokasiEvent)]];
+  const eventFields=[['Event',upper(q.jenisEvent)],['Date',`${eventDateRange(q)} · ${Math.max(1,Math.floor(num(q.numberOfDays)||1))} DAY(S)`],['Time',upper(eventTimeRange(q),'TBC')],['Venue',upper(q.lokasiEvent)]];
   eventFields.forEach(([k,v],i)=>{
     const x=i%2===0?18:109, yy=y+11+Math.floor(i/2)*18;
     label(k,x,yy);value(v,x,yy+6,78,{bold:i===0,size:8.5});
@@ -1653,7 +1664,7 @@ function buildQuotationPDF(q){
   ly=info('Phone',q.noHpClient,left+4,ly,colW-8);ly=info('Email',q.buyerEmail,left+4,ly,colW-8);ly=info('TIN',q.buyerTin,left+4,ly,colW-8);
   let ry=boxY+14.2;
   ry=info('Quotation No',quoteNo,rightBoxX+4,ry,colW-8);ry=info('Event',q.jenisEvent,rightBoxX+4,ry,colW-8);
-  ry=info('Date / Time',eventDateRange(q)+' • '+(q.waktuEvent||'TBC')+' • '+Math.max(1,Math.floor(num(q.numberOfDays)||1))+' DAY(S)',rightBoxX+4,ry,colW-8);
+  ry=info('Date / Time',eventDateRange(q)+' • '+eventTimeRange(q)+' • '+Math.max(1,Math.floor(num(q.numberOfDays)||1))+' DAY(S)',rightBoxX+4,ry,colW-8);
   ry=info('Venue',q.lokasiEvent,rightBoxX+4,ry,colW-8);ry=info('Package',q.pakej,rightBoxX+4,ry,colW-8);
 
   // Services table.
@@ -3275,7 +3286,7 @@ function attachGlobalEvents(){
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
     const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
-      lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), numberOfDays:Math.max(1,Math.floor(num(q.numberOfDays)||1)), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), backdrop:q.backdrop,
+      lokasiEvent:q.lokasiEvent, waktuEvent:eventTimeRange(q), jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), numberOfDays:Math.max(1,Math.floor(num(q.numberOfDays)||1)), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', pakejTambahanPrice:q.addOnPrice||0, transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
       bookingStatus:'Pending', quotationRef:q.quotationNumber, _isNew:true };
@@ -3485,7 +3496,12 @@ function renderPreserveScroll(){ $('main').innerHTML = renderMain(); attachGloba
 
 function openForm(type, data){
   if(type === 'booking' || type === 'quotation') data = ensurePackageDefaults({...data});
-  if(type === 'quotation') data.eventEndDate = data.eventEndDate || data.tarikhEvent || '';
+  if(type === 'quotation'){
+    data.eventEndDate = data.eventEndDate || data.tarikhEvent || '';
+    const legacyTimes = legacyEventTimes(data.waktuEvent);
+    data.eventStartTime = data.eventStartTime || legacyTimes[0] || '';
+    data.eventEndTime = data.eventEndTime || legacyTimes[1] || '';
+  }
   if(type === 'booking') data.revenueCategory = canonicalRevenueCategory(data.revenueCategory, data);
   if(type === 'expense') data = {...data, category:canonicalExpenseCategory(data.category)};
   State.formModal = { type, data };
@@ -3533,6 +3549,9 @@ function submitForm(e){
     out.status = $('ff-status').value;
     if(!out.namaClient.trim() || !out.tarikhEvent || !out.eventEndDate){ showFormWarn('Client Name, Event Start Date and Event End Date are required.'); return; }
     if(out.eventEndDate < out.tarikhEvent){ showFormWarn('Event End Date cannot be earlier than Event Start Date.'); return; }
+    if(!out.eventStartTime || !out.eventEndTime){ showFormWarn('Event Start Time and Event End Time are required.'); return; }
+    if(`${out.eventEndDate}T${out.eventEndTime}` <= `${out.tarikhEvent}T${out.eventStartTime}`){ showFormWarn('Event End Date and Time must be later than the start.'); return; }
+    out.waktuEvent = `${out.eventStartTime} - ${out.eventEndTime}`;
     if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
       showFormWarn('Company Name is required for a Company event.'); return;
     }
