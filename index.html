@@ -745,6 +745,12 @@ const bookingPaidAmount = (b) => b?.paymentStatus === 'Paid' ? num(b?.jumlahKese
 const todayISO = () => new Date().toISOString().slice(0,10);
 const monthKeyOf = (iso) => iso ? iso.slice(0,7) : '';
 const displayDate = (iso) => { if(!iso) return '—'; const [y,m,d]=iso.split('-'); return d && `${d}.${m}.${y}` || iso; };
+const eventDateRange = (obj={}) => {
+  const start = obj.tarikhEvent || '';
+  const end = obj.eventEndDate || start;
+  if(!start) return '—';
+  return !end || end===start ? displayDate(start) : `${displayDate(start)} - ${displayDate(end)}`;
+};
 const esc = (s) => (s===undefined||s===null) ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const waLink = (phone, text) => `https://wa.me/${String(phone||'').replace(/[^0-9]/g,'')}?text=${encodeURIComponent(text)}`;
 const parseTimeRange = (text) => {
@@ -990,7 +996,7 @@ function themeButtonHtml(){
 /* ======================= SAMPLE / EMPTY RECORDS ======================= */
 function sampleBooking(){
   return { id:uid(), bookingDate:todayISO(), jenisEvent:'Hospital Appreciation Event', namaClient:'Ms Tina',
-    noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
+    noHpClient:'+447917 414593', tarikhEvent:'2026-07-05', eventEndDate:'2026-07-05', lokasiEvent:'Universiti Malaya Medical Centre (UMMC)',
     namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 3 HOURS', packageHours:'3', numberOfDays:1, photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'',
     transportCharges:0, jumlahKeseluruhan:1150, bayaranDeposit:0, paymentStatus:'Paid', bookingStatus:'Confirmed',
     calendarSynced:false, quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
@@ -998,7 +1004,7 @@ function sampleBooking(){
 function emptyBooking(){
   const bookingDate = todayISO();
   const bookingId = createBookingId(bookingDate);
-  return { id:uid(), bookingId, bookingDate, jenisEvent:'', buyerCompany:'', namaClient:'', noHpClient:'', tarikhEvent:'', lokasiEvent:'',
+  return { id:uid(), bookingId, bookingDate, jenisEvent:'', buyerCompany:'', namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'', lokasiEvent:'',
     namaCP:'', noHpCP:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, backdrop:'', pakejTambahan:'N/A', pakejTambahanPrice:0, waktuEvent:'', transportCharges:0,
     jumlahKeseluruhan:0, bayaranDeposit:0, paymentStatus:'Unpaid', bookingStatus:'Pending', calendarSynced:false,
     quotationRef:'', revenueCategory:'Other income', createdAt:new Date().toISOString() };
@@ -1008,7 +1014,7 @@ function emptyQuotation(){
   const code = uniqueQuotationLetterCode(quotationDate);
   const bookingId = `KB-${yyyymmdd(quotationDate)}-${code}`;
   const num_ = `QT-${bookingId}`;
-  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'',
+  return { id:uid(), bookingId, quotationNumber:num_, quotationDate, namaClient:'', noHpClient:'', tarikhEvent:'', eventEndDate:'',
     lokasiEvent:'', jenisEvent:'', buyerCompany:'', buyerEmail:'', packageType:'PHOTOBOOTH', pakej:'PHOTOBOOTH 2 HOURS', packageHours:'2', numberOfDays:1, photoboothSets:1, pakejPrice:0, backdrop:'', addOn:'', addOnPrice:0, transportCharges:0,
     discount:0, sstPercent:0, depositRequired:0, status:'Draft', createdAt:new Date().toISOString() };
 }
@@ -1113,6 +1119,10 @@ function packageBenefitLabels(obj={}){
 function hasBenefit(obj={}, key){
   return getAutoPackageBenefits(obj).some(x=>x.key===key);
 }
+function numberedDescriptionTableHTML(items=[]){
+  const rows = items.map((item,index)=>`<tr><td style="width:56px;text-align:center;font-weight:800;padding:8px;border-bottom:1px solid var(--line)">${index+1}</td><td style="padding:8px;border-bottom:1px solid var(--line)">${esc(item)}</td></tr>`).join('');
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="width:56px;text-align:center;padding:8px;background:var(--surface);border-bottom:1px solid var(--line)">No.</th><th style="text-align:left;padding:8px;background:var(--surface);border-bottom:1px solid var(--line)">Description</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 function quotationFeatureList(q={}){
   const type = String(q.packageType || q.pakej || 'PHOTOBOOTH').toUpperCase();
   let base;
@@ -1159,6 +1169,7 @@ function ensurePackageDefaults(obj={}){
   obj.packageHours = String(obj.packageHours || detectPackageHours(obj) || hours[0] || '2');
   if(!hours.includes(String(obj.packageHours))) obj.packageHours = hours[0] || '2';
   obj.pakej = buildPackageName(obj.packageType, obj.packageHours);
+  obj.eventEndDate = obj.eventEndDate || obj.tarikhEvent || '';
   obj.numberOfDays = Math.max(1, Math.floor(num(obj.numberOfDays) || 1));
   obj.photoboothSets = Math.max(1, Math.floor(num(obj.photoboothSets) || 1));
   return obj;
@@ -1174,7 +1185,7 @@ const BOOKING_FIELDS = [
   ['bookingDate','Booking Date','date'],['jenisEvent','Jenis Event','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
   ['namaClient','Nama Client','text'],['noHpClient','No HP Client','text'],
-  ['tarikhEvent','Tarikh Event','date'],['lokasiEvent','Lokasi Event','text'],
+  ['tarikhEvent','Event Start Date','date'],['eventEndDate','Event End Date','date'],['lokasiEvent','Lokasi Event','text'],
   ['namaCP','Nama Contact Person Waktu Event','text'],['noHpCP','No HP Contact Person','text'],
   ['packageType','Pilihan Pakej','select',PACKAGE_TYPE_OPTIONS],['packageHours','Package Duration (Hours)','selectDynamicPackageHours'],['numberOfDays','Number of Days','number'],['photoboothSets','Number of Photobooth Sets','number'],['pakej','Package Name (Auto)','readonly'],['backdrop','Pilihan Backdrop','text'],
   ['pakejTambahan','Pakej Tambahan','text'],['pakejTambahanPrice','Pakej Tambahan Price (RM)','number'],['waktuEvent','Waktu Event','text'],
@@ -1186,7 +1197,7 @@ const BOOKING_FIELDS = [
 ];
 const QUOTATION_FIELDS = [
   ['quotationDate','Quotation Date','date'],['namaClient','Client Name','text'],
-  ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Date','date'],
+  ['noHpClient','Client Phone Number','text'],['tarikhEvent','Event Start Date','date'],['eventEndDate','Event End Date','date'],
   ['lokasiEvent','Event Location','text'],['jenisEvent','Event Type','select',EVENT_TYPE_OPTIONS],
   ['buyerCompany','Company Name','text'],
   ['buyerEmail','Buyer Email','email'],
@@ -1552,7 +1563,7 @@ function buildQuotationPDFEditorialLegacy(q){
   rule(105);
 
   y=sectionTitle('Event brief',113);
-  const eventFields=[['Event',upper(q.jenisEvent)],['Date',`${displayDate(q.tarikhEvent)} · ${Math.max(1,Math.floor(num(q.numberOfDays)||1))} DAY(S)`],['Time',upper(q.waktuEvent,'TBC')],['Venue',upper(q.lokasiEvent)]];
+  const eventFields=[['Event',upper(q.jenisEvent)],['Date',`${eventDateRange(q)} · ${Math.max(1,Math.floor(num(q.numberOfDays)||1))} DAY(S)`],['Time',upper(q.waktuEvent,'TBC')],['Venue',upper(q.lokasiEvent)]];
   eventFields.forEach(([k,v],i)=>{
     const x=i%2===0?18:109, yy=y+11+Math.floor(i/2)*18;
     label(k,x,yy);value(v,x,yy+6,78,{bold:i===0,size:8.5});
@@ -1641,7 +1652,7 @@ function buildQuotationPDF(q){
   ly=info('Phone',q.noHpClient,left+4,ly,colW-8);ly=info('Email',q.buyerEmail,left+4,ly,colW-8);ly=info('TIN',q.buyerTin,left+4,ly,colW-8);
   let ry=boxY+14.2;
   ry=info('Quotation No',quoteNo,rightBoxX+4,ry,colW-8);ry=info('Event',q.jenisEvent,rightBoxX+4,ry,colW-8);
-  ry=info('Date / Time',(displayDate(q.tarikhEvent)||'—')+' • '+(q.waktuEvent||'TBC')+' • '+Math.max(1,Math.floor(num(q.numberOfDays)||1))+' DAY(S)',rightBoxX+4,ry,colW-8);
+  ry=info('Date / Time',eventDateRange(q)+' • '+(q.waktuEvent||'TBC')+' • '+Math.max(1,Math.floor(num(q.numberOfDays)||1))+' DAY(S)',rightBoxX+4,ry,colW-8);
   ry=info('Venue',q.lokasiEvent,rightBoxX+4,ry,colW-8);ry=info('Package',q.pakej,rightBoxX+4,ry,colW-8);
 
   // Services table.
@@ -1709,7 +1720,7 @@ function buildBookingSummaryPDF(b){
     body:[
       ['Client Name', b.namaClient||'—','Booking Status', b.bookingStatus],
       ['Client Phone', b.noHpClient||'—','Payment Status', b.paymentStatus],
-      ['Event Date', displayDate(b.tarikhEvent),'Number of Days', Math.max(1,Math.floor(num(b.numberOfDays)||1))],
+      ['Event Dates', eventDateRange(b),'Number of Days', Math.max(1,Math.floor(num(b.numberOfDays)||1))],
       ['Event Type', b.jenisEvent||'—','Event Time', b.waktuEvent||'TBC'], 
       ['Event Location', b.lokasiEvent||'—','Contact Person', b.namaCP||'—'],
       ['Contact Person Phone', b.noHpCP||'—','Booking ID', getBookingId(b)],
@@ -1877,7 +1888,7 @@ function buildInvoicePDF(b){
   let ry = boxY + 14.2;
   ry = infoItem('Booking No', b.bookingNo || b.quotationRef || '—', rightBoxX+4, ry, colW-8);
   ry = infoItem('Event', b.jenisEvent || '—', rightBoxX+4, ry, colW-8);
-  ry = infoItem('Date / Time', (displayDate(b.tarikhEvent) || '—') + ' • ' + (b.waktuEvent || 'TBC') + ' • ' + Math.max(1,Math.floor(num(b.numberOfDays)||1)) + ' DAY(S)', rightBoxX+4, ry, colW-8);
+  ry = infoItem('Date / Time', eventDateRange(b) + ' • ' + (b.waktuEvent || 'TBC') + ' • ' + Math.max(1,Math.floor(num(b.numberOfDays)||1)) + ' DAY(S)', rightBoxX+4, ry, colW-8);
   ry = infoItem('Venue', b.lokasiEvent || '—', rightBoxX+4, ry, colW-8);
   ry = infoItem('Contact', [b.namaCP, b.noHpCP].filter(Boolean).join(' • ') || '—', rightBoxX+4, ry, colW-8);
 
@@ -2599,14 +2610,14 @@ function renderBookings(){
           <col style="width:5.5%"><col style="width:7%"><col style="width:7%"><col style="width:5%">
           <col style="width:3%"><col style="width:8%">
         </colgroup>
-        <thead><tr>${['No.','Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['No.','Booking ID','Event Dates','Client','Phone','Location','Package','Total','Balance','Payment','Booking','GCal','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map((b,idx)=>{
             const bal = bookingBalance(b);
             return `<tr>
               <td style="font-weight:800;color:var(--muted)">${idx+1}</td>
               <td style="font-weight:750" title="${esc(getBookingId(b))}">${getBookingId(b)}</td>
-              <td>${displayDate(b.tarikhEvent)}</td>
+              <td>${eventDateRange(b)}</td>
               <td style="font-weight:600" title="${esc(b.namaClient)}">${esc(b.namaClient)}</td>
               <td title="${esc(b.noHpClient)}">${esc(b.noHpClient)}</td>
               <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(b.lokasiEvent)}">${esc(b.lokasiEvent)}</td>
@@ -2669,7 +2680,7 @@ function renderInvoices(){
             const outstanding = Math.max(0, num(b.jumlahKeseluruhan)-paidAmount);
             return `<tr>
               <td style="font-weight:700">${invoiceNo}</td>
-              <td>${displayDate(b.tarikhEvent)}</td>
+              <td>${eventDateRange(b)}</td>
               <td style="font-weight:700">${esc(b.namaClient)}</td>
               <td>${esc(b.noHpClient)}</td>
               <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(b.pakej)}">${esc(b.pakej||'Photobooth Package')}</td>
@@ -2720,7 +2731,7 @@ function renderQuotations(){
     </div>
     <div class="card table-card table-scroll">
       <table class="fit-table">
-        <thead><tr>${['No.','Quotation No.','Date','Client','Event Date','Package','PB Sets','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${['No.','Quotation No.','Date','Client','Event Dates','Package','PB Sets','Total','Deposit','Balance','Status','Docs','Actions'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
         <tbody>
           ${rows.map((q,index)=>{
             const total = quotationGrandTotal(q), bal = total-num(q.depositRequired);
@@ -2729,7 +2740,7 @@ function renderQuotations(){
               <td style="font-weight:600">${getQuotationNo(q)}</td>
               <td>${displayDate(q.quotationDate)}</td>
               <td>${esc(q.namaClient)}</td>
-              <td>${displayDate(q.tarikhEvent)}</td>
+              <td>${eventDateRange(q)}</td>
               <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(q.pakej)}</td>
               <td style="text-align:center;font-weight:700">${Math.max(1,Math.floor(num(q.photoboothSets)||1))}</td>
               <td>${rm(total)}</td>
@@ -3124,7 +3135,7 @@ function renderFormModal(){
   if(type==='booking' || type==='quotation'){
     const benefitText = packageBenefitLabels(data);
     const descriptionItems = quotationFeatureList(data);
-    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Numbered Package Description</span><div class="input" id="numbered-package-description" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${descriptionItems.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>')}</div></div><div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Photobooth and Combo bookings of 4 hours and above receive free keychains. Combo receives 100pcs; Photobooth receives 100pcs per photobooth set. Wedding Photobooth also receives a free guest book. 360 Spinbooth-only receives no automatic free item.</div></div>`;
+    extra += `<div class="field" style="grid-column:1/-1"><span class="label">Package Description</span><div class="input" id="numbered-package-description" style="height:auto;min-height:44px;padding:0;overflow:hidden;background:var(--surface)">${numberedDescriptionTableHTML(descriptionItems)}</div></div><div class="field" style="grid-column:1/-1"><span class="label">Auto Free Items</span><div class="input" id="auto-free-items" style="height:auto;min-height:44px;background:var(--surface);font-weight:700;line-height:1.55">${benefitText.length ? benefitText.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE'}</div><div style="font-size:11px;color:var(--muted);margin-top:5px">Rule: Photobooth and Combo bookings of 4 hours and above receive free keychains. Combo receives 100pcs; Photobooth receives 100pcs per photobooth set. Wedding Photobooth also receives a free guest book. 360 Spinbooth-only receives no automatic free item.</div></div>`;
   }
 
   return `<div class="modal-bg" id="modal-bg">
@@ -3262,7 +3273,7 @@ function attachGlobalEvents(){
   });
   document.querySelectorAll('[data-convert]').forEach(el => el.onclick = () => {
     const q = State.quotations.find(x=>x.id===el.dataset.convert);
-    const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent,
+    const nb = { ...emptyBooking(), namaClient:q.namaClient, noHpClient:q.noHpClient, tarikhEvent:q.tarikhEvent, eventEndDate:q.eventEndDate||q.tarikhEvent,
       lokasiEvent:q.lokasiEvent, jenisEvent:q.jenisEvent, buyerCompany:q.buyerCompany||'', buyerEmail:q.buyerEmail||'', packageType:q.packageType || 'PHOTOBOOTH', pakej:q.pakej || buildPackageName(q.packageType, q.packageHours), packageHours:q.packageHours || detectPackageHours(q), numberOfDays:Math.max(1,Math.floor(num(q.numberOfDays)||1)), photoboothSets:Math.max(1,Math.floor(num(q.photoboothSets)||1)), backdrop:q.backdrop,
       pakejTambahan:q.addOn||'N/A', pakejTambahanPrice:q.addOnPrice||0, transportCharges:q.transportCharges, jumlahKeseluruhan:quotationGrandTotal(q),
       bayaranDeposit:q.depositRequired, paymentStatus: num(q.depositRequired)>0?'Deposit Paid':'Unpaid',
@@ -3312,7 +3323,7 @@ function attachGlobalEvents(){
       if(autoFreeItems) autoFreeItems.innerHTML = labels.length ? labels.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>') : 'NO AUTO FREE ITEM FOR THIS PACKAGE';
       if(numberedPackageDescription){
         const descriptions = quotationFeatureList(preview);
-        numberedPackageDescription.innerHTML = descriptions.map((item,index)=>`${index+1}. ${esc(item)}`).join('<br>');
+        numberedPackageDescription.innerHTML = numberedDescriptionTableHTML(descriptions);
       }
     };
     const refreshPackageName = () => {
@@ -3327,6 +3338,16 @@ function attachGlobalEvents(){
     packageHoursSelect.onchange = refreshPackageName;
     if(photoboothSetsInput) photoboothSetsInput.oninput = refreshBenefits;
     refreshPackageName();
+  }
+
+  const eventStartDateInput = $('ff-tarikhEvent');
+  const eventEndDateInput = $('ff-eventEndDate');
+  if(eventStartDateInput && eventEndDateInput){
+    eventStartDateInput.addEventListener('change',()=>{
+      if(!eventEndDateInput.value || eventEndDateInput.value < eventStartDateInput.value) eventEndDateInput.value = eventStartDateInput.value;
+      eventEndDateInput.min = eventStartDateInput.value || '';
+    });
+    eventEndDateInput.min = eventStartDateInput.value || '';
   }
 
   const companyEventType = $('ff-jenisEvent');
@@ -3482,7 +3503,8 @@ function submitForm(e){
     out.revenueCategory = canonicalRevenueCategory(out.revenueCategory, out);
     out.paymentStatus = $('ff-paymentStatus').value; out.bookingStatus = $('ff-bookingStatus').value;
     if(out.paymentStatus === 'Paid') out.bayaranDeposit = num(out.jumlahKeseluruhan);
-    if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Nama Client and Tarikh Event are required.'); return; }
+    if(!out.namaClient.trim() || !out.tarikhEvent || !out.eventEndDate){ showFormWarn('Nama Client, Event Start Date and Event End Date are required.'); return; }
+    if(out.eventEndDate < out.tarikhEvent){ showFormWarn('Event End Date cannot be earlier than Event Start Date.'); return; }
     if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
       showFormWarn('Company Name is required for a Company event.'); return;
     }
@@ -3506,7 +3528,8 @@ function submitForm(e){
     if(!Number.isInteger(out.numberOfDays) || out.numberOfDays < 1){ showFormWarn('Number of Days must be a whole number of at least 1.'); return; }
     if(!Number.isInteger(out.photoboothSets) || out.photoboothSets < 1){ showFormWarn('Number of Photobooth Sets must be a whole number of at least 1.'); return; }
     out.status = $('ff-status').value;
-    if(!out.namaClient.trim() || !out.tarikhEvent){ showFormWarn('Client Name and Event Date are required.'); return; }
+    if(!out.namaClient.trim() || !out.tarikhEvent || !out.eventEndDate){ showFormWarn('Client Name, Event Start Date and Event End Date are required.'); return; }
+    if(out.eventEndDate < out.tarikhEvent){ showFormWarn('Event End Date cannot be earlier than Event Start Date.'); return; }
     if(String(out.jenisEvent||'').trim().toUpperCase()==='COMPANY' && !String(out.buyerCompany||'').trim()){
       showFormWarn('Company Name is required for a Company event.'); return;
     }
@@ -3739,7 +3762,7 @@ function exportAccountsPDF(year){
 function exportBookingsExcel(){
   const rows = State.bookings.map(b => ({
     'Booking ID': getBookingId(b), 'Booking Date': b.bookingDate, 'Jenis Event': b.jenisEvent, 'Company Name': b.buyerCompany||'', 'Nama Client': b.namaClient, 'No HP Client': b.noHpClient,
-    'Tarikh Event': b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
+    'Event Start Date': b.tarikhEvent, 'Event End Date': b.eventEndDate||b.tarikhEvent, 'Lokasi Event': b.lokasiEvent, 'Nama CP': b.namaCP, 'No HP CP': b.noHpCP,
     'Pakej': b.pakej, 'Number of Days': Math.max(1,Math.floor(num(b.numberOfDays)||1)), 'Photobooth Sets': Math.max(1, Math.floor(num(b.photoboothSets)||1)), 'Free Items': packageBenefitLabels(b).join(', '), 'Backdrop': b.backdrop, 'Pakej Tambahan': b.pakejTambahan, 'Pakej Tambahan Price (RM)': num(b.pakejTambahanPrice), 'Waktu Event': b.waktuEvent,
     'Transport (RM)': b.transportCharges, 'Jumlah (RM)': b.jumlahKeseluruhan, 'Deposit (RM)': b.bayaranDeposit,
     'Balance (RM)': bookingBalance(b), 'Payment Status': b.paymentStatus,
@@ -3754,8 +3777,8 @@ function exportBookingsListPDF(){
   docHeader(doc,'Booking List','ALL-'+todayISO().replace(/-/g,''));
   doc.autoTable({ startY:30, theme:'grid', headStyles:{fillColor:[28,24,21],textColor:[239,228,196],fontSize:8},
     styles:{fontSize:8,cellPadding:2.5}, margin:{left:12,right:12},
-    head:[['Booking ID','Event Date','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
-    body: State.bookings.map(b=>[getBookingId(b), displayDate(b.tarikhEvent), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
+    head:[['Booking ID','Event Dates','Client','Phone','Location','Package','Total','Balance','Payment','Booking']],
+    body: State.bookings.map(b=>[getBookingId(b), eventDateRange(b), b.namaClient, b.noHpClient, b.lokasiEvent, b.pakej,
       rmVal(b.jumlahKeseluruhan), rmVal(bookingBalance(b)), b.paymentStatus, b.bookingStatus]),
   });
   doc.save(`kerlip-bookings-${todayISO()}.pdf`);
